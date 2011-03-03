@@ -9,13 +9,18 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 
 import javax.servlet.ServletException;
 
 import net.sf.json.JSONObject;
 
+import org.arachna.netweaver.dc.types.DevelopmentComponent;
 import org.arachna.netweaver.hudson.nwdi.NWDIBuild;
+import org.arachna.netweaver.hudson.nwdi.NWDIProject;
+import org.arachna.netweaver.hudson.util.FilePathHelper;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -39,6 +44,7 @@ import org.kohsuke.stapler.StaplerRequest;
  */
 public class CheckstyleBuilder extends Builder {
 
+    private static final String CHECKSTYLE_CONFIG_XML = "checkstyle-config.xml";
     private final String name;
 
     // Fields in config.jelly must match the parameter names in the
@@ -63,10 +69,33 @@ public class CheckstyleBuilder extends Builder {
 
         // this also shows how you can consult the global configuration of the
         // builder
-        NWDIBuild nwdiBuild = (NWDIBuild)build;
-        nwdiBuild.getDevelopmentConfiguration();
+        boolean result = true;
 
-        return true;
+        try {
+            NWDIBuild nwdiBuild = (NWDIBuild)build;
+            Collection<DevelopmentComponent> components = nwdiBuild.getAffectedDevelopmentComponents();
+            nwdiBuild.getWorkspace().child(CHECKSTYLE_CONFIG_XML)
+                .write(this.getDescriptor().getConfiguration(), "UTF-8");
+
+            String pathToWorkspace = FilePathHelper.makeAbsolute(nwdiBuild.getWorkspace());
+
+            CheckStyleExecutor executor =
+                new CheckStyleExecutor(pathToWorkspace, new File(pathToWorkspace + File.separatorChar
+                    + CHECKSTYLE_CONFIG_XML));
+
+            for (DevelopmentComponent component : components) {
+                executor.execute(component);
+            }
+        }
+        catch (IOException e) {
+            e.printStackTrace(listener.getLogger());
+            result = false;
+        }
+        catch (InterruptedException e) {
+            // finish.
+        }
+
+        return result;
     }
 
     // overrided for better type safety.
@@ -97,6 +126,16 @@ public class CheckstyleBuilder extends Builder {
          */
         private String configuration;
 
+        // TODO: add excludes (file name pattern and contains selectors)
+
+        /**
+         * Create descriptor for NWDI-CheckStyle-Builder and load global
+         * configuration data.
+         */
+        public DescriptorImpl() {
+            load();
+        }
+
         /**
          * Performs on-the-fly validation of the form field 'name'.
          * 
@@ -106,18 +145,15 @@ public class CheckstyleBuilder extends Builder {
          *         browser.
          */
         public FormValidation doCheckConfiguration(@QueryParameter String value) throws IOException, ServletException {
-            if (value.length() == 0)
-                return FormValidation.error("Please set a name");
-            if (value.length() < 4)
-                return FormValidation.warning("Isn't the name too short?");
-            return FormValidation.ok();
+            return value.length() == 0 ? FormValidation.error("Please insert a checkstyle configuration.")
+                : FormValidation.ok();
         }
 
         @Override
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {
             // indicates that this builder can be used with all kinds of project
             // types
-            return NWDIBuild.class.equals(aClass.getClass());
+            return NWDIProject.class.equals(aClass.getClass());
         }
 
         /**
@@ -135,6 +171,7 @@ public class CheckstyleBuilder extends Builder {
             configuration = formData.getString("configuration");
 
             save();
+
             return super.configure(req, formData);
         }
 
@@ -143,6 +180,14 @@ public class CheckstyleBuilder extends Builder {
          */
         public String getConfiguration() {
             return configuration;
+        }
+
+        /**
+         * @param configuration
+         *            the configuration to set
+         */
+        public void setConfiguration(String configuration) {
+            this.configuration = configuration;
         }
     }
 }
