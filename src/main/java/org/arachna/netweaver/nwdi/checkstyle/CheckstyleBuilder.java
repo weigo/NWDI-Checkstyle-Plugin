@@ -115,8 +115,6 @@ public class CheckstyleBuilder extends Builder {
      * for the actual HTML fragment for the configuration screen.
      */
     @Extension
-    // this marker indicates Hudson that this is an implementation of an
-    // extension point.
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
         /**
          * Persistent checkstyle configuration.
@@ -166,9 +164,17 @@ public class CheckstyleBuilder extends Builder {
 
         @Override
         public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
-            // To persist global configuration information,
-            // set that to properties and call save().
-            configuration = formData.getString("configuration");
+            String fileKey = formData.getString("checkStyleConfiguration");
+
+            try {
+                configuration = req.getFileItem(fileKey).getString();
+            }
+            catch (ServletException e) {
+                throw new FormException(e, "ServletException");
+            }
+            catch (IOException e) {
+                throw new FormException(e, "IOException");
+            }
 
             save();
 
