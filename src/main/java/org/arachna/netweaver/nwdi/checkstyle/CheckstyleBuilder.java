@@ -17,6 +17,7 @@ import javax.servlet.ServletException;
 
 import net.sf.json.JSONObject;
 
+import org.apache.commons.fileupload.FileItem;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
 import org.arachna.netweaver.hudson.nwdi.NWDIBuild;
 import org.arachna.netweaver.hudson.nwdi.NWDIProject;
@@ -43,6 +44,11 @@ import org.kohsuke.stapler.StaplerRequest;
  * @author Kohsuke Kawaguchi
  */
 public class CheckstyleBuilder extends Builder {
+    /**
+     * Global descriptor/configuraton for CheckstyleBuilder.
+     */
+    @Extension(ordinal = 1000)
+    public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
     private static final String CHECKSTYLE_CONFIG_XML = "checkstyle-config.xml";
     private final String name;
@@ -103,7 +109,7 @@ public class CheckstyleBuilder extends Builder {
     // you don't have to do this.
     @Override
     public DescriptorImpl getDescriptor() {
-        return (DescriptorImpl)super.getDescriptor();
+        return DESCRIPTOR;
     }
 
     /**
@@ -114,7 +120,6 @@ public class CheckstyleBuilder extends Builder {
      * See <tt>views/hudson/plugins/hello_world/HelloWorldBuilder/*.jelly</tt>
      * for the actual HTML fragment for the configuration screen.
      */
-    @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
         /**
          * Persistent checkstyle configuration.
@@ -149,9 +154,8 @@ public class CheckstyleBuilder extends Builder {
 
         @Override
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {
-            // indicates that this builder can be used with all kinds of project
-            // types
-            return NWDIProject.class.equals(aClass.getClass());
+            System.err.println(aClass.getName());
+            return NWDIProject.class.equals(aClass);
         }
 
         /**
@@ -167,7 +171,11 @@ public class CheckstyleBuilder extends Builder {
             String fileKey = formData.getString("checkStyleConfiguration");
 
             try {
-                configuration = req.getFileItem(fileKey).getString();
+                FileItem fileItem = req.getFileItem(fileKey);
+
+                if (fileItem != null) {
+                    configuration = fileItem.getString();
+                }
             }
             catch (ServletException e) {
                 throw new FormException(e, "ServletException");
