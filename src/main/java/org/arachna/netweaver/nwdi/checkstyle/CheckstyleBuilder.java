@@ -44,10 +44,6 @@ import org.kohsuke.stapler.StaplerRequest;
  * @author Kohsuke Kawaguchi
  */
 public class CheckstyleBuilder extends Builder {
-    /**
-     * Global descriptor/configuraton for CheckstyleBuilder.
-     */
-    @Extension(ordinal = 1000)
     public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
     private static final String CHECKSTYLE_CONFIG_XML = "checkstyle-config.xml";
@@ -120,6 +116,7 @@ public class CheckstyleBuilder extends Builder {
      * See <tt>views/hudson/plugins/hello_world/HelloWorldBuilder/*.jelly</tt>
      * for the actual HTML fragment for the configuration screen.
      */
+    @Extension(ordinal = 1000)
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
         /**
          * Persistent checkstyle configuration.
