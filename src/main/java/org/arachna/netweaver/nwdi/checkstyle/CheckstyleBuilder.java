@@ -44,6 +44,9 @@ import org.kohsuke.stapler.StaplerRequest;
  * @author Kohsuke Kawaguchi
  */
 public class CheckstyleBuilder extends Builder {
+    /**
+     * Descriptor for {@link CheckstyleBuilder}.
+     */
     public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
     private static final String CHECKSTYLE_CONFIG_XML = "checkstyle-config.xml";
@@ -52,7 +55,7 @@ public class CheckstyleBuilder extends Builder {
     // Fields in config.jelly must match the parameter names in the
     // "DataBoundConstructor"
     @DataBoundConstructor
-    public CheckstyleBuilder(String name) {
+    public CheckstyleBuilder(final String name) {
         this.name = name;
     }
 
@@ -64,7 +67,7 @@ public class CheckstyleBuilder extends Builder {
     }
 
     @Override
-    public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
+    public boolean perform(final AbstractBuild build, final Launcher launcher, final BuildListener listener) {
         // this is where you 'build' the project
         // since this is a dummy, we just say 'hello world' and call that a
         // build
@@ -74,26 +77,26 @@ public class CheckstyleBuilder extends Builder {
         boolean result = true;
 
         try {
-            NWDIBuild nwdiBuild = (NWDIBuild)build;
-            Collection<DevelopmentComponent> components = nwdiBuild.getAffectedDevelopmentComponents();
+            final NWDIBuild nwdiBuild = (NWDIBuild)build;
+            final Collection<DevelopmentComponent> components = nwdiBuild.getAffectedDevelopmentComponents();
             nwdiBuild.getWorkspace().child(CHECKSTYLE_CONFIG_XML)
                 .write(this.getDescriptor().getConfiguration(), "UTF-8");
 
-            String pathToWorkspace = FilePathHelper.makeAbsolute(nwdiBuild.getWorkspace());
+            final String pathToWorkspace = FilePathHelper.makeAbsolute(nwdiBuild.getWorkspace());
 
-            CheckStyleExecutor executor =
+            final CheckStyleExecutor executor =
                 new CheckStyleExecutor(pathToWorkspace, new File(pathToWorkspace + File.separatorChar
                     + CHECKSTYLE_CONFIG_XML));
 
-            for (DevelopmentComponent component : components) {
+            for (final DevelopmentComponent component : components) {
                 executor.execute(component);
             }
         }
-        catch (IOException e) {
+        catch (final IOException e) {
             e.printStackTrace(listener.getLogger());
             result = false;
         }
-        catch (InterruptedException e) {
+        catch (final InterruptedException e) {
             // finish.
         }
 
@@ -144,13 +147,14 @@ public class CheckstyleBuilder extends Builder {
          * @return Indicates the outcome of the validation. This is sent to the
          *         browser.
          */
-        public FormValidation doCheckConfiguration(@QueryParameter String value) throws IOException, ServletException {
+        public FormValidation doCheckConfiguration(@QueryParameter final String value) throws IOException,
+            ServletException {
             return value.length() == 0 ? FormValidation.error("Please insert a checkstyle configuration.")
                 : FormValidation.ok();
         }
 
         @Override
-        public boolean isApplicable(Class<? extends AbstractProject> aClass) {
+        public boolean isApplicable(final Class<? extends AbstractProject> aClass) {
             System.err.println(aClass.getName());
             return NWDIProject.class.equals(aClass);
         }
@@ -164,20 +168,24 @@ public class CheckstyleBuilder extends Builder {
         }
 
         @Override
-        public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
-            String fileKey = formData.getString("checkStyleConfiguration");
+        public boolean configure(final StaplerRequest req, final JSONObject formData) throws FormException {
+            final String fileKey = formData.getString("checkStyleConfiguration");
 
             try {
-                FileItem fileItem = req.getFileItem(fileKey);
+                final FileItem item = req.getFileItem(fileKey);
 
-                if (fileItem != null) {
-                    configuration = fileItem.getString();
+                if (item != null) {
+                    final String content = item.getString();
+
+                    if (content != null && content.trim().length() > 0) {
+                        this.configuration = content;
+                    }
                 }
             }
-            catch (ServletException e) {
+            catch (final ServletException e) {
                 throw new FormException(e, "ServletException");
             }
-            catch (IOException e) {
+            catch (final IOException e) {
                 throw new FormException(e, "IOException");
             }
 
@@ -197,7 +205,7 @@ public class CheckstyleBuilder extends Builder {
          * @param configuration
          *            the configuration to set
          */
-        public void setConfiguration(String configuration) {
+        public void setConfiguration(final String configuration) {
             this.configuration = configuration;
         }
     }
