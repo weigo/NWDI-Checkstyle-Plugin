@@ -11,8 +11,9 @@ import org.arachna.netweaver.dc.types.DevelopmentComponent;
 import com.puppycrawl.tools.checkstyle.CheckStyleTask;
 
 /**
- * @author Dirk Weigenand
+ * Execute a checkstyle check on a given development component.
  * 
+ * @author Dirk Weigenand
  */
 final class CheckStyleExecutor {
     /**
@@ -37,15 +38,27 @@ final class CheckStyleExecutor {
     private final File config;
 
     /**
+     * Create an instance of an {@link CheckStyleExecutor} with the given
+     * workspace location and checkstyle configuration file.
      * 
      * @param workspace
+     *            the workspace where to operate from
+     * @param config
+     *            the checkstyle configuration file
+     * 
      */
-    CheckStyleExecutor(String workspace, File config) {
+    CheckStyleExecutor(final String workspace, final File config) {
         this.workspace = workspace;
         this.config = config;
     }
 
-    void execute(DevelopmentComponent component) {
+    /**
+     * Executes the checkstyle check for the given development component.
+     * 
+     * @param component
+     *            the development component to execute a checkstyle check on.
+     */
+    void execute(final DevelopmentComponent component) {
         CheckStyleTask task = new CheckStyleTask();
 
         for (String srcFolder : component.getSourceFolders()) {
@@ -63,7 +76,18 @@ final class CheckStyleExecutor {
 
     }
 
-    private CheckStyleTask.Formatter createFormatter(DevelopmentComponent component) {
+    /**
+     * Creates a {@link CheckStyleTask.Formatter} object based on the given
+     * development component.
+     * 
+     * The development component determines where the checkstyle result file can
+     * be found.
+     * 
+     * @param component
+     *            development component the formatter should be created for.
+     * @return a checkstyle formatter object.
+     */
+    private CheckStyleTask.Formatter createFormatter(final DevelopmentComponent component) {
         CheckStyleTask.Formatter formatter = new CheckStyleTask.Formatter();
         formatter.setTofile(createResultFile(component));
         formatter.setUseFile(true);
@@ -79,12 +103,20 @@ final class CheckStyleExecutor {
      * 
      * @return the base path of the current component (its '_comp' folder).
      */
-    private String getSourceFolderLocation(DevelopmentComponent component, String sourceFolder) {
+    private String getSourceFolderLocation(final DevelopmentComponent component, final String sourceFolder) {
         return String.format(LOCATION_TEMPLATE, this.workspace, component.getVendor(), component.getName(),
             sourceFolder).replace('/', File.separatorChar);
     }
 
-    private File createResultFile(DevelopmentComponent component) {
+    /**
+     * Create a file object where the checkstlye result shall be written to.
+     * 
+     * @param component
+     *            the development component which is used to determine the place
+     *            to write the result to.
+     * @return file object where checkstyle result shall be written to.
+     */
+    private File createResultFile(final DevelopmentComponent component) {
         return new File(String.format(CHECKSTYLE_RESULT_LOCATION_TEMPLATE, this.workspace, component.getVendor(),
             component.getName()).replace('/', File.separatorChar));
     }
