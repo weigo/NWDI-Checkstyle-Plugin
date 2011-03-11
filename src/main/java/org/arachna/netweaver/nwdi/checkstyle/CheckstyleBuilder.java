@@ -54,8 +54,10 @@ public class CheckstyleBuilder extends Builder {
      */
     private static final String CHECKSTYLE_CONFIG_XML = "checkstyle-config.xml";
 
-    // Fields in config.jelly must match the parameter names in the
-    // "DataBoundConstructor"
+    /**
+     * Data bound constructor. Used for populating a {@link CheckstyleBuilder}
+     * instance from form fields in <code>config.jelly</code>.
+     */
     @DataBoundConstructor
     public CheckstyleBuilder() {
     }
