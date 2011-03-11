@@ -49,31 +49,23 @@ public class CheckstyleBuilder extends Builder {
      */
     public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
+    /**
+     * Name of checkstyle configuration file in workspace.
+     */
     private static final String CHECKSTYLE_CONFIG_XML = "checkstyle-config.xml";
-    private final String name;
 
     // Fields in config.jelly must match the parameter names in the
     // "DataBoundConstructor"
     @DataBoundConstructor
-    public CheckstyleBuilder(final String name) {
-        this.name = name;
+    public CheckstyleBuilder() {
     }
 
     /**
-     * We'll use this from the <tt>config.jelly</tt>.
+     * 
+     * {@inheritDoc}
      */
-    public String getName() {
-        return name;
-    }
-
     @Override
-    public boolean perform(final AbstractBuild build, final Launcher launcher, final BuildListener listener) {
-        // this is where you 'build' the project
-        // since this is a dummy, we just say 'hello world' and call that a
-        // build
-
-        // this also shows how you can consult the global configuration of the
-        // builder
+    public boolean perform(final AbstractBuild<?, ?> build, final Launcher launcher, final BuildListener listener) {
         boolean result = true;
 
         try {
@@ -97,27 +89,24 @@ public class CheckstyleBuilder extends Builder {
             result = false;
         }
         catch (final InterruptedException e) {
+            e.printStackTrace(listener.getLogger());
             // finish.
         }
 
         return result;
     }
 
-    // overrided for better type safety.
-    // if your plugin doesn't really define any property on Descriptor,
-    // you don't have to do this.
+    /**
+     * 
+     * {@inheritDoc}
+     */
     @Override
     public DescriptorImpl getDescriptor() {
         return DESCRIPTOR;
     }
 
     /**
-     * Descriptor for {@link CheckstyleBuilder}. Used as a singleton. The class
-     * is marked as public so that it can be accessed from views.
-     * 
-     * <p>
-     * See <tt>views/hudson/plugins/hello_world/HelloWorldBuilder/*.jelly</tt>
-     * for the actual HTML fragment for the configuration screen.
+     * Descriptor for {@link CheckstyleBuilder}.
      */
     @Extension(ordinal = 1000)
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
@@ -153,9 +142,12 @@ public class CheckstyleBuilder extends Builder {
                 : FormValidation.ok();
         }
 
+        /**
+         * 
+         * {@inheritDoc}
+         */
         @Override
         public boolean isApplicable(final Class<? extends AbstractProject> aClass) {
-            System.err.println(aClass.getName());
             return NWDIProject.class.equals(aClass);
         }
 
@@ -167,6 +159,10 @@ public class CheckstyleBuilder extends Builder {
             return "NWDI Checkstyle";
         }
 
+        /**
+         * 
+         * {@inheritDoc}
+         */
         @Override
         public boolean configure(final StaplerRequest req, final JSONObject formData) throws FormException {
             final String fileKey = formData.getString("checkStyleConfiguration");
@@ -202,6 +198,9 @@ public class CheckstyleBuilder extends Builder {
         }
 
         /**
+         * Sets the checkstyle configuration to be used for all NWDI checkstyle
+         * builders.
+         * 
          * @param configuration
          *            the configuration to set
          */
