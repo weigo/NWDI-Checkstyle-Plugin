@@ -4,8 +4,14 @@
 package org.arachna.netweaver.nwdi.checkstyle;
 
 import java.io.File;
+import java.util.Collection;
+import java.util.HashSet;
 
 import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.selectors.ContainsRegexpSelector;
+import org.apache.tools.ant.types.selectors.FileSelector;
+import org.apache.tools.ant.types.selectors.NotSelector;
+import org.apache.tools.ant.types.selectors.OrSelector;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
 
 import com.puppycrawl.tools.checkstyle.CheckStyleTask;
@@ -38,6 +44,16 @@ final class CheckStyleExecutor {
     private final File config;
 
     /**
+     * exclude patterns.
+     */
+    private final Collection<String> excludes = new HashSet<String>();
+
+    /**
+     * regular expressions for exclusion via file content.
+     */
+    private final Collection<String> regexps = new HashSet<String>();
+
+    /**
      * Create an instance of an {@link CheckStyleExecutor} with the given
      * workspace location and checkstyle configuration file.
      * 
@@ -47,9 +63,12 @@ final class CheckStyleExecutor {
      *            the checkstyle configuration file
      * 
      */
-    CheckStyleExecutor(final String workspace, final File config) {
+    CheckStyleExecutor(final String workspace, final File config, Collection<String> excludes,
+        Collection<String> regexps) {
         this.workspace = workspace;
         this.config = config;
+        this.excludes.addAll(excludes);
+        this.regexps.addAll(regexps);
     }
 
     /**
@@ -62,10 +81,15 @@ final class CheckStyleExecutor {
         CheckStyleTask task = new CheckStyleTask();
 
         for (String srcFolder : component.getSourceFolders()) {
-            // TODO: add excludes
             FileSet fileSet = new FileSet();
             fileSet.setDir(new File(this.getSourceFolderLocation(component, srcFolder)));
             fileSet.setIncludes("**/*.java");
+            fileSet.appendExcludes(this.excludes.toArray(new String[this.excludes.size()]));
+
+            if (this.regexps.size() > 0) {
+                fileSet.add(this.createContainsRegexpSelectors());
+            }
+
             task.addFileset(fileSet);
         }
 
@@ -74,6 +98,18 @@ final class CheckStyleExecutor {
         task.setFailOnViolation(false);
         task.perform();
 
+    }
+
+    private FileSelector createContainsRegexpSelectors() {
+        OrSelector or = new OrSelector();
+
+        for (String containsRegexp : this.regexps) {
+            ContainsRegexpSelector selector = new ContainsRegexpSelector();
+            selector.setExpression(containsRegexp);
+            or.add(selector);
+        }
+
+        return new NotSelector(or);
     }
 
     /**

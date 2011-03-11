@@ -12,9 +12,11 @@ import hudson.util.FormValidation;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashSet;
 
 import javax.servlet.ServletException;
 
+import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 import org.apache.commons.fileupload.FileItem;
@@ -80,7 +82,8 @@ public class CheckstyleBuilder extends Builder {
 
             final CheckStyleExecutor executor =
                 new CheckStyleExecutor(pathToWorkspace, new File(pathToWorkspace + File.separatorChar
-                    + CHECKSTYLE_CONFIG_XML));
+                    + CHECKSTYLE_CONFIG_XML), this.getDescriptor().getExcludes(), this.getDescriptor()
+                    .getExcludeContainsRegexps());
 
             for (final DevelopmentComponent component : components) {
                 executor.execute(component);
@@ -120,7 +123,16 @@ public class CheckstyleBuilder extends Builder {
          */
         private String configuration;
 
-        // TODO: add excludes (file name pattern and contains selectors)
+        /**
+         * set of filename patterns to exclude from checkstyle checks.
+         */
+        private final Collection<String> excludes = new HashSet<String>();
+
+        /**
+         * set of regular expressions to exclude files from checkstyle checks
+         * via their content.
+         */
+        private final Collection<String> excludeContainsRegexps = new HashSet<String>();
 
         /**
          * Create descriptor for NWDI-CheckStyle-Builder and load global
@@ -179,6 +191,32 @@ public class CheckstyleBuilder extends Builder {
                         this.configuration = content;
                     }
                 }
+
+                JSONArray excludes = formData.getJSONArray("excludes");
+
+                this.excludes.clear();
+
+                for (int i = 0; i < excludes.size(); i++) {
+                    JSONObject param = excludes.getJSONObject(i);
+                    String exclude = param.getString("exclude");
+
+                    if (exclude.length() > 0) {
+                        this.excludes.add(exclude);
+                    }
+                }
+
+                JSONArray excludeContainsRegexps = formData.getJSONArray("excludeContainsRegexps");
+
+                this.excludeContainsRegexps.clear();
+
+                for (int i = 0; i < excludeContainsRegexps.size(); i++) {
+                    JSONObject param = excludeContainsRegexps.getJSONObject(i);
+                    String exclude = param.getString("regexp");
+
+                    if (exclude.length() > 0) {
+                        this.excludeContainsRegexps.add(exclude);
+                    }
+                }
             }
             catch (final ServletException e) {
                 throw new FormException(e, "ServletException");
@@ -187,6 +225,7 @@ public class CheckstyleBuilder extends Builder {
                 throw new FormException(e, "IOException");
             }
 
+            // formData.getJSONArray(key)
             save();
 
             return super.configure(req, formData);
@@ -196,7 +235,7 @@ public class CheckstyleBuilder extends Builder {
          * Return the checkstyle configuration.
          */
         public String getConfiguration() {
-            return configuration;
+            return this.configuration;
         }
 
         /**
@@ -208,6 +247,52 @@ public class CheckstyleBuilder extends Builder {
          */
         public void setConfiguration(final String configuration) {
             this.configuration = configuration;
+        }
+
+        /**
+         * Returns the list of file name patterns to exclude from checkstyle
+         * checks.
+         * 
+         * @return the list of file name patterns to exclude from checkstyle
+         *         checks.
+         */
+        public final Collection<String> getExcludes() {
+            return this.excludes;
+        }
+
+        /**
+         * Sets the list of file name patterns to exclude from checkstyle
+         * checks.
+         * 
+         * @param excludes
+         *            the list of file name patterns to exclude from checkstyle
+         *            checks.
+         */
+        public final void setExcludes(Collection<String> excludes) {
+            this.excludes.clear();
+
+            if (excludes != null) {
+                this.excludes.addAll(excludes);
+            }
+        }
+
+        /**
+         * @return the excludeContainsRegexps
+         */
+        public final Collection<String> getExcludeContainsRegexps() {
+            return excludeContainsRegexps;
+        }
+
+        /**
+         * @param excludeContainsRegexps
+         *            the excludeContainsRegexps to set
+         */
+        public final void setExcludeContainsRegexps(Collection<String> excludeContainsRegexps) {
+            this.excludeContainsRegexps.clear();
+
+            if (excludeContainsRegexps != null) {
+                this.excludeContainsRegexps.addAll(excludeContainsRegexps);
+            }
         }
     }
 }
