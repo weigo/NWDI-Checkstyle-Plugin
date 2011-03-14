@@ -77,12 +77,7 @@ public class CheckstyleBuilder extends Builder {
             final Collection<DevelopmentComponent> components = nwdiBuild.getAffectedDevelopmentComponents();
             nwdiBuild.getWorkspace().child(CHECKSTYLE_CONFIG_XML).write(getDescriptor().getConfiguration(), "UTF-8");
 
-            final String pathToWorkspace = FilePathHelper.makeAbsolute(nwdiBuild.getWorkspace());
-
-            final CheckStyleExecutor executor =
-                new CheckStyleExecutor(pathToWorkspace, new File(pathToWorkspace + File.separatorChar
-                    + CHECKSTYLE_CONFIG_XML), getDescriptor().getExcludes(), getDescriptor()
-                    .getExcludeContainsRegexps());
+            final CheckStyleExecutor executor = createExecutor(nwdiBuild);
 
             for (final DevelopmentComponent component : components) {
                 executor.execute(component);
@@ -98,6 +93,21 @@ public class CheckstyleBuilder extends Builder {
         }
 
         return result;
+    }
+
+    /**
+     * Create a {@link CheckStyleExecutor} using the given {@link NWDIBuild}.
+     * 
+     * @param nwdiBuild
+     *            build object
+     * @return the checkstyle executor object executing the analysis.
+     */
+    protected CheckStyleExecutor createExecutor(final NWDIBuild nwdiBuild) {
+        final String pathToWorkspace = FilePathHelper.makeAbsolute(nwdiBuild.getWorkspace());
+        final DescriptorImpl descriptor = getDescriptor();
+
+        return new CheckStyleExecutor(pathToWorkspace, new File(pathToWorkspace + File.separatorChar
+            + CHECKSTYLE_CONFIG_XML), descriptor.getExcludes(), descriptor.getExcludeContainsRegexps());
     }
 
     /**
