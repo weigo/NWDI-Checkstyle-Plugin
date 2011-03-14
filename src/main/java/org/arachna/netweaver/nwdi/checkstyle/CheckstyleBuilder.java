@@ -75,14 +75,13 @@ public class CheckstyleBuilder extends Builder {
         try {
             final NWDIBuild nwdiBuild = (NWDIBuild)build;
             final Collection<DevelopmentComponent> components = nwdiBuild.getAffectedDevelopmentComponents();
-            nwdiBuild.getWorkspace().child(CHECKSTYLE_CONFIG_XML)
-                .write(this.getDescriptor().getConfiguration(), "UTF-8");
+            nwdiBuild.getWorkspace().child(CHECKSTYLE_CONFIG_XML).write(getDescriptor().getConfiguration(), "UTF-8");
 
             final String pathToWorkspace = FilePathHelper.makeAbsolute(nwdiBuild.getWorkspace());
 
             final CheckStyleExecutor executor =
                 new CheckStyleExecutor(pathToWorkspace, new File(pathToWorkspace + File.separatorChar
-                    + CHECKSTYLE_CONFIG_XML), this.getDescriptor().getExcludes(), this.getDescriptor()
+                    + CHECKSTYLE_CONFIG_XML), getDescriptor().getExcludes(), getDescriptor()
                     .getExcludeContainsRegexps());
 
             for (final DevelopmentComponent component : components) {
@@ -132,7 +131,7 @@ public class CheckstyleBuilder extends Builder {
          * set of regular expressions to exclude files from checkstyle checks
          * via their content.
          */
-        private final Collection<String> excludeContainsRegexps = new HashSet<String>();
+        private final Collection<String> excludeRegexps = new HashSet<String>();
 
         /**
          * Create descriptor for NWDI-CheckStyle-Builder and load global
@@ -179,42 +178,15 @@ public class CheckstyleBuilder extends Builder {
          */
         @Override
         public boolean configure(final StaplerRequest req, final JSONObject formData) throws FormException {
-            final String fileKey = formData.getString("checkStyleConfiguration");
-
             try {
+                final String fileKey = formData.getString("checkStyleConfiguration");
                 final FileItem item = req.getFileItem(fileKey);
 
                 if (item != null) {
                     final String content = item.getString();
 
                     if (content != null && content.trim().length() > 0) {
-                        this.configuration = content;
-                    }
-                }
-
-                JSONArray excludes = formData.getJSONArray("excludes");
-
-                this.excludes.clear();
-
-                for (int i = 0; i < excludes.size(); i++) {
-                    JSONObject param = excludes.getJSONObject(i);
-                    String exclude = param.getString("exclude");
-
-                    if (exclude.length() > 0) {
-                        this.excludes.add(exclude);
-                    }
-                }
-
-                JSONArray excludeContainsRegexps = formData.getJSONArray("excludeContainsRegexps");
-
-                this.excludeContainsRegexps.clear();
-
-                for (int i = 0; i < excludeContainsRegexps.size(); i++) {
-                    JSONObject param = excludeContainsRegexps.getJSONObject(i);
-                    String exclude = param.getString("regexp");
-
-                    if (exclude.length() > 0) {
-                        this.excludeContainsRegexps.add(exclude);
+                        configuration = content;
                     }
                 }
             }
@@ -225,17 +197,54 @@ public class CheckstyleBuilder extends Builder {
                 throw new FormException(e, "IOException");
             }
 
-            // formData.getJSONArray(key)
+            excludes.clear();
+            excludes.addAll(getExcludeItemDescriptions(formData, "excludes", "exclude"));
+
+            excludeRegexps.clear();
+            excludeRegexps.addAll(getExcludeItemDescriptions(formData, "excludeContainsRegexps", "regexp"));
+
             save();
 
             return super.configure(req, formData);
         }
 
         /**
+         * Extract item descriptions for exclusion from analysis.
+         * 
+         * @param formData
+         *            JSON form containing configuration data.
+         * @param formName
+         *            name of JSON form element to extract item descriptions
+         *            from.
+         * @param itemName
+         *            name of configuration form item.
+         * 
+         * @return collection of item descriptions to exclude from checkstyle
+         *         analysis
+         */
+        protected Collection<String> getExcludeItemDescriptions(final JSONObject formData, final String formName,
+            final String itemName) {
+            final Collection<String> descriptions = new HashSet<String>();
+
+            final JSONArray excludes = JSONArray.fromObject(formData.get(formName));
+
+            for (int i = 0; i < excludes.size(); i++) {
+                final JSONObject param = excludes.getJSONObject(i);
+                final String exclude = param.getString(itemName);
+
+                if (exclude.length() > 0) {
+                    descriptions.add(exclude);
+                }
+            }
+
+            return descriptions;
+        }
+
+        /**
          * Return the checkstyle configuration.
          */
         public String getConfiguration() {
-            return this.configuration;
+            return configuration;
         }
 
         /**
@@ -256,8 +265,8 @@ public class CheckstyleBuilder extends Builder {
          * @return the list of file name patterns to exclude from checkstyle
          *         checks.
          */
-        public final Collection<String> getExcludes() {
-            return this.excludes;
+        public Collection<String> getExcludes() {
+            return excludes;
         }
 
         /**
@@ -268,7 +277,7 @@ public class CheckstyleBuilder extends Builder {
          *            the list of file name patterns to exclude from checkstyle
          *            checks.
          */
-        public final void setExcludes(Collection<String> excludes) {
+        public void setExcludes(final Collection<String> excludes) {
             this.excludes.clear();
 
             if (excludes != null) {
@@ -279,19 +288,19 @@ public class CheckstyleBuilder extends Builder {
         /**
          * @return the excludeContainsRegexps
          */
-        public final Collection<String> getExcludeContainsRegexps() {
-            return excludeContainsRegexps;
+        public Collection<String> getExcludeContainsRegexps() {
+            return excludeRegexps;
         }
 
         /**
          * @param excludeContainsRegexps
          *            the excludeContainsRegexps to set
          */
-        public final void setExcludeContainsRegexps(Collection<String> excludeContainsRegexps) {
-            this.excludeContainsRegexps.clear();
+        public void setExcludeContainsRegexps(final Collection<String> excludeContainsRegexps) {
+            excludeRegexps.clear();
 
             if (excludeContainsRegexps != null) {
-                this.excludeContainsRegexps.addAll(excludeContainsRegexps);
+                excludeRegexps.addAll(excludeContainsRegexps);
             }
         }
     }

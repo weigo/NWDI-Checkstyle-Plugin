@@ -6,18 +6,14 @@
   <f:section title="NWDI Checkstyle Builder">
     <!-- optional @help points to the help document HTML. /plugin/NWDI-Checkstyle-Plugin is mapped to our webapp/ directory, so this is a convenient
       way to serve static resources. -->
-    <f:entry title="Checkstyle configuration" description="${%Upload your checkstyle configuration file}." help="/plugin/NWDI-Checkstyle-Plugin/help-globalConfig.html">
-      <!-- we'll have on input field. In HTML, single "namespace" is shared between all form components in one <form>, so we need to choose a
-        name that doesn't collide with other plugins. The 'descriptor' variable represents our descriptor object, so we use that to determine the initial
-        value for this form. -->
+    <f:entry title="${%Checkstyle configuration}" description="${%Upload your checkstyle configuration file.}" help="/plugin/NWDI-Checkstyle-Plugin/help-globalConfig.html">
       <input type="file" name="checkstyle.checkStyleConfiguration" jsonAware="yes" />
     </f:entry>
-    <f:entry>
-      <!-- f:optionalBlock name="checkstyle.advancedConfiguration" title="${%Configure patterns to exclude from checkstyle checks.}"
-        checked="true"-->
+    <f:optionalBlock name="checkstyle.advancedConfiguration" title="${%Advanced checkstyle configuration.}" checked="false">
+      <f:entry help="/plugin/NWDI-Checkstyle-Plugin/help-pattern.html" title="${%Exclude by Ant file name pattern.}">
         <f:repeatable name="checkstyle.excludes" var="exclude" items="${descriptor.excludes}" noAddButton="true" minimum="1">
           <table width="100%">
-            <f:entry title="${%Exclude pattern}" help="/plugin/NWDI-Checkstyle-Plugin/help-pattern.html">
+            <f:entry>
               <f:textbox name="exclude" value="${exclude}" />
             </f:entry>
             <f:entry>
@@ -28,25 +24,23 @@
             </f:entry>
           </table>
         </f:repeatable>
-      <!-- /f:optionalBlock-->
-    </f:entry>
-    <f:entry>
-      <!-- f:optionalBlock name="checkstyle.advancedConfiguration" title="${%Configure patterns to exclude from checkstyle checks.}"
-        checked="true"-->
-        <f:repeatable name="checkstyle.excludeContainsRegexps" var="regexp" items="${descriptor.excludeContainsRegexps}" noAddButton="true" minimum="1">
+      </f:entry>
+      <f:entry title="${%Exclude by regular expression of file content.}" help="/plugin/NWDI-Checkstyle-Plugin/help-pattern.html">
+        <f:repeatable name="checkstyle.excludeContainsRegexps" var="regexp" items="${descriptor.excludeContainsRegexps}"
+          noAddButton="true" minimum="1">
           <table width="100%">
-            <f:entry title="${%Exclude contains regexp pattern}" help="/plugin/NWDI-Checkstyle-Plugin/help-pattern.html">
+            <f:entry>
               <f:textbox name="regexp" value="${regexp}" />
             </f:entry>
             <f:entry>
               <div align="right">
-                <input type="button" value="${%Add another exclude contains regexp pattern...}" class="repeatable-add show-if-last" />
+                <input type="button" value="${%Add another regular expression...}" class="repeatable-add show-if-last" />
                 <input type="button" value="${%Delete}" class="repeatable-delete show-if-not-only" style="margin-left: 1em;" />
               </div>
             </f:entry>
           </table>
         </f:repeatable>
-      <!-- /f:optionalBlock-->
-    </f:entry>
+      </f:entry>
+    </f:optionalBlock>
   </f:section>
 </j:jelly>
