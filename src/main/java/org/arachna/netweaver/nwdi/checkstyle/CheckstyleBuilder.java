@@ -49,6 +49,7 @@ public class CheckstyleBuilder extends Builder {
     /**
      * Descriptor for {@link CheckstyleBuilder}.
      */
+    @Extension(ordinal = 1000)
     public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
     /**
@@ -122,7 +123,6 @@ public class CheckstyleBuilder extends Builder {
     /**
      * Descriptor for {@link CheckstyleBuilder}.
      */
-    @Extension(ordinal = 1000)
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
         /**
          * Persistent checkstyle configuration.
@@ -236,7 +236,9 @@ public class CheckstyleBuilder extends Builder {
             final String itemName) {
             final Collection<String> descriptions = new HashSet<String>();
 
-            final JSONArray excludes = JSONArray.fromObject(formData.get(formName));
+            final JSONObject advancedConfig = (JSONObject)formData.get("advancedConfiguration");
+
+            final JSONArray excludes = JSONArray.fromObject(advancedConfig.get(formName));
 
             for (int i = 0; i < excludes.size(); i++) {
                 final JSONObject param = excludes.getJSONObject(i);
