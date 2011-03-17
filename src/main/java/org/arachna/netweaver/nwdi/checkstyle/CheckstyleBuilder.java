@@ -2,9 +2,12 @@ package org.arachna.netweaver.nwdi.checkstyle;
 
 import hudson.Extension;
 import hudson.Launcher;
+import hudson.PluginFirstClassLoader;
+import hudson.PluginWrapper;
 import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
+import hudson.model.Hudson;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
@@ -72,13 +75,19 @@ public class CheckstyleBuilder extends Builder {
     @Override
     public boolean perform(final AbstractBuild<?, ?> build, final Launcher launcher, final BuildListener listener) {
         boolean result = true;
+        final ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
 
         try {
             final NWDIBuild nwdiBuild = (NWDIBuild)build;
             final Collection<DevelopmentComponent> components = nwdiBuild.getAffectedDevelopmentComponents();
             nwdiBuild.getWorkspace().child(CHECKSTYLE_CONFIG_XML).write(getDescriptor().getConfiguration(), "UTF-8");
 
-            final CheckStyleExecutor executor = createExecutor(nwdiBuild);
+            final PluginWrapper pluginWrapper =
+                Hudson.getInstance().getPluginManager().getPlugin("NWDI-Checkstyle-Plugin");
+            final PluginFirstClassLoader pluginFirstClassLoader = (PluginFirstClassLoader)pluginWrapper.classLoader;
+            Thread.currentThread().setContextClassLoader(pluginFirstClassLoader);
+
+            final CheckStyleExecutor executor = createExecutor(nwdiBuild, listener);
 
             for (final DevelopmentComponent component : components) {
                 executor.execute(component);
@@ -92,6 +101,9 @@ public class CheckstyleBuilder extends Builder {
             e.printStackTrace(listener.getLogger());
             // finish.
         }
+        finally {
+            Thread.currentThread().setContextClassLoader(oldClassLoader);
+        }
 
         return result;
     }
@@ -103,11 +115,11 @@ public class CheckstyleBuilder extends Builder {
      *            build object
      * @return the checkstyle executor object executing the analysis.
      */
-    protected CheckStyleExecutor createExecutor(final NWDIBuild nwdiBuild) {
+    protected CheckStyleExecutor createExecutor(final NWDIBuild nwdiBuild, final BuildListener listener) {
         final String pathToWorkspace = FilePathHelper.makeAbsolute(nwdiBuild.getWorkspace());
         final DescriptorImpl descriptor = getDescriptor();
 
-        return new CheckStyleExecutor(pathToWorkspace, new File(pathToWorkspace + File.separatorChar
+        return new CheckStyleExecutor(listener, pathToWorkspace, new File(pathToWorkspace + File.separatorChar
             + CHECKSTYLE_CONFIG_XML), descriptor.getExcludes(), descriptor.getExcludeContainsRegexps());
     }
 
