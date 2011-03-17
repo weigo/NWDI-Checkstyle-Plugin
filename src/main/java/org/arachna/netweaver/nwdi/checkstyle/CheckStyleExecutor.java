@@ -3,6 +3,8 @@
  */
 package org.arachna.netweaver.nwdi.checkstyle;
 
+import hudson.model.BuildListener;
+
 import java.io.File;
 import java.util.Collection;
 import java.util.HashSet;
@@ -45,6 +47,11 @@ final class CheckStyleExecutor {
     private final File config;
 
     /**
+     * build listener for log messages.
+     */
+    private final BuildListener listener;
+
+    /**
      * exclude patterns.
      */
     private final Collection<String> excludes = new HashSet<String>();
@@ -58,14 +65,23 @@ final class CheckStyleExecutor {
      * Create an instance of an {@link CheckStyleExecutor} with the given
      * workspace location and checkstyle configuration file.
      * 
+     * @param listener
+     *            build listener for logging
      * @param workspace
      *            the workspace where to operate from
      * @param config
      *            the checkstyle configuration file
+     * @param excludes
+     *            collection of ant exclude expressions for exclusion based on
+     *            file name patterns
+     * @param regexps
+     *            collection of regular expression for exclusion based on file
+     *            contents
      * 
      */
-    CheckStyleExecutor(final String workspace, final File config, final Collection<String> excludes,
-        final Collection<String> regexps) {
+    CheckStyleExecutor(final BuildListener listener, final String workspace, final File config,
+        final Collection<String> excludes, final Collection<String> regexps) {
+        this.listener = listener;
         this.workspace = workspace;
         this.config = config;
         this.excludes.addAll(excludes);
@@ -101,6 +117,8 @@ final class CheckStyleExecutor {
             task.addFormatter(createFormatter(component));
             task.setConfig(this.config);
             task.setFailOnViolation(false);
+            this.listener.getLogger().append(
+                String.format("Running checkstyle analysis on %s/%s.\n", component.getVendor(), component.getName()));
             task.execute();
         }
     }
@@ -135,6 +153,7 @@ final class CheckStyleExecutor {
 
         final CheckStyleTask.FormatterType formatterType = new CheckStyleTask.FormatterType();
         formatterType.setValue("xml");
+        formatter.setType(formatterType);
 
         return formatter;
     }
