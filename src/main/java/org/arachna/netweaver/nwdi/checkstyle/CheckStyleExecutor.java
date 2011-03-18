@@ -34,7 +34,7 @@ final class CheckStyleExecutor {
      * template for path to source folder.
      */
     private static final String CHECKSTYLE_RESULT_LOCATION_TEMPLATE =
-        "%s/.dtc/DCs/%s/%s/_comp/gen/default/logs/checkstyle_errors.xml";
+        "%s/.dtc/DCs/%s/%s/_comp/gen/default/logs/checkstyle-result.xml";
 
     /**
      * workspace folder.
