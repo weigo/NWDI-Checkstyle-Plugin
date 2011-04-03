@@ -48,7 +48,7 @@ import org.kohsuke.stapler.StaplerRequest;
  * 
  * @author Kohsuke Kawaguchi
  */
-public class CheckstyleBuilder extends Builder {
+public final class CheckstyleBuilder extends Builder {
     /**
      * Descriptor for {@link CheckstyleBuilder}.
      */
@@ -61,11 +61,37 @@ public class CheckstyleBuilder extends Builder {
     private static final String CHECKSTYLE_CONFIG_XML = "checkstyle-config.xml";
 
     /**
+     * Content of uploaded checkstyle configuration.
+     */
+    private String configuration;
+
+    /**
+     * set of filename patterns to exclude from checkstyle checks.
+     */
+    private final Collection<String> excludes = new HashSet<String>();
+
+    /**
+     * set of regular expressions to exclude files from checkstyle checks via
+     * their content.
+     */
+    private final Collection<String> excludeRegexps = new HashSet<String>();
+
+    /**
      * Data bound constructor. Used for populating a {@link CheckstyleBuilder}
      * instance from form fields in <code>config.jelly</code>.
      */
     @DataBoundConstructor
-    public CheckstyleBuilder() {
+    public CheckstyleBuilder(final FileItem configuration, final JSONObject advancedConfiguration) {
+        if (configuration != null) {
+            final String content = configuration.getString();
+
+            if (content != null && content.trim().length() > 0) {
+                this.configuration = content;
+            }
+        }
+
+        excludes.addAll(getExcludeItemDescriptions(advancedConfiguration, "excludes", "exclude"));
+        excludeRegexps.addAll(getExcludeItemDescriptions(advancedConfiguration, "excludeContainsRegexps", "regexp"));
     }
 
     /**
@@ -80,7 +106,7 @@ public class CheckstyleBuilder extends Builder {
         try {
             final NWDIBuild nwdiBuild = (NWDIBuild)build;
             final Collection<DevelopmentComponent> components = nwdiBuild.getAffectedDevelopmentComponents();
-            nwdiBuild.getWorkspace().child(CHECKSTYLE_CONFIG_XML).write(getDescriptor().getConfiguration(), "UTF-8");
+            nwdiBuild.getWorkspace().child(CHECKSTYLE_CONFIG_XML).write(getConfiguration(), "UTF-8");
 
             final PluginWrapper pluginWrapper =
                 Hudson.getInstance().getPluginManager().getPlugin("NWDI-Checkstyle-Plugin");
@@ -117,10 +143,100 @@ public class CheckstyleBuilder extends Builder {
      */
     protected CheckStyleExecutor createExecutor(final NWDIBuild nwdiBuild, final BuildListener listener) {
         final String pathToWorkspace = FilePathHelper.makeAbsolute(nwdiBuild.getWorkspace());
-        final DescriptorImpl descriptor = getDescriptor();
 
         return new CheckStyleExecutor(listener, pathToWorkspace, new File(pathToWorkspace + File.separatorChar
-            + CHECKSTYLE_CONFIG_XML), descriptor.getExcludes(), descriptor.getExcludeContainsRegexps());
+            + CHECKSTYLE_CONFIG_XML), getExcludes(), getExcludeContainsRegexps());
+    }
+
+    /**
+     * Extract item descriptions for exclusion from analysis.
+     * 
+     * @param formData
+     *            JSON form containing configuration data.
+     * @param formName
+     *            name of JSON form element to extract item descriptions from.
+     * @param itemName
+     *            name of configuration form item.
+     * 
+     * @return collection of item descriptions to exclude from checkstyle
+     *         analysis
+     */
+    protected Collection<String> getExcludeItemDescriptions(final JSONObject advancedConfig, final String formName,
+        final String itemName) {
+        final Collection<String> descriptions = new HashSet<String>();
+        final JSONArray configItem = JSONArray.fromObject(advancedConfig.get(formName));
+
+        for (int i = 0; i < configItem.size(); i++) {
+            final JSONObject param = configItem.getJSONObject(i);
+            final String item = param.getString(itemName);
+
+            if (item.length() > 0) {
+                descriptions.add(item);
+            }
+        }
+
+        return descriptions;
+    }
+
+    /**
+     * Return the checkstyle configuration.
+     */
+    public String getConfiguration() {
+        return configuration;
+    }
+
+    /**
+     * Sets the checkstyle configuration to be used for all NWDI checkstyle
+     * builders.
+     * 
+     * @param configuration
+     *            the configuration to set
+     */
+    public void setConfiguration(final String configuration) {
+        this.configuration = configuration;
+    }
+
+    /**
+     * Returns the list of file name patterns to exclude from checkstyle checks.
+     * 
+     * @return the list of file name patterns to exclude from checkstyle checks.
+     */
+    public Collection<String> getExcludes() {
+        return excludes;
+    }
+
+    /**
+     * Sets the list of file name patterns to exclude from checkstyle checks.
+     * 
+     * @param excludes
+     *            the list of file name patterns to exclude from checkstyle
+     *            checks.
+     */
+    public void setExcludes(final Collection<String> excludes) {
+        this.excludes.clear();
+
+        if (excludes != null) {
+            this.excludes.addAll(excludes);
+        }
+    }
+
+    /**
+     * @return the excludeContainsRegexps
+     */
+    public Collection<String> getExcludeContainsRegexps() {
+        return excludeRegexps;
+    }
+
+    /**
+     * @param excludeContainsRegexps
+     *            the excludeContainsRegexps to set
+     */
+    public void setExcludeContainsRegexps(final Collection<String> excludeContainsRegexps) {
+        excludeRegexps.clear();
+
+        if (excludeContainsRegexps != null) {
+            excludeRegexps.addAll(excludeContainsRegexps);
+        }
     }
 
     /**
@@ -136,25 +252,6 @@ public class CheckstyleBuilder extends Builder {
      * Descriptor for {@link CheckstyleBuilder}.
      */
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
-        /**
-         * Persistent checkstyle configuration.
-         * 
-         * <p>
-         * If you don't want fields to be persisted, use <tt>transient</tt>.
-         */
-        private String configuration;
-
-        /**
-         * set of filename patterns to exclude from checkstyle checks.
-         */
-        private final Collection<String> excludes = new HashSet<String>();
-
-        /**
-         * set of regular expressions to exclude files from checkstyle checks
-         * via their content.
-         */
-        private final Collection<String> excludeRegexps = new HashSet<String>();
-
         /**
          * Create descriptor for NWDI-CheckStyle-Builder and load global
          * configuration data.
@@ -192,140 +289,6 @@ public class CheckstyleBuilder extends Builder {
         @Override
         public String getDisplayName() {
             return "NWDI Checkstyle";
-        }
-
-        /**
-         * 
-         * {@inheritDoc}
-         */
-        @Override
-        public boolean configure(final StaplerRequest req, final JSONObject formData) throws FormException {
-            try {
-                final String fileKey = formData.getString("checkStyleConfiguration");
-                final FileItem item = req.getFileItem(fileKey);
-
-                if (item != null) {
-                    final String content = item.getString();
-
-                    if (content != null && content.trim().length() > 0) {
-                        configuration = content;
-                    }
-                }
-            }
-            catch (final ServletException e) {
-                throw new FormException(e, "ServletException");
-            }
-            catch (final IOException e) {
-                throw new FormException(e, "IOException");
-            }
-
-            excludes.clear();
-            excludes.addAll(getExcludeItemDescriptions(formData, "excludes", "exclude"));
-
-            excludeRegexps.clear();
-            excludeRegexps.addAll(getExcludeItemDescriptions(formData, "excludeContainsRegexps", "regexp"));
-
-            save();
-
-            return super.configure(req, formData);
-        }
-
-        /**
-         * Extract item descriptions for exclusion from analysis.
-         * 
-         * @param formData
-         *            JSON form containing configuration data.
-         * @param formName
-         *            name of JSON form element to extract item descriptions
-         *            from.
-         * @param itemName
-         *            name of configuration form item.
-         * 
-         * @return collection of item descriptions to exclude from checkstyle
-         *         analysis
-         */
-        protected Collection<String> getExcludeItemDescriptions(final JSONObject formData, final String formName,
-            final String itemName) {
-            final Collection<String> descriptions = new HashSet<String>();
-
-            final JSONObject advancedConfig = (JSONObject)formData.get("advancedConfiguration");
-
-            final JSONArray excludes = JSONArray.fromObject(advancedConfig.get(formName));
-
-            for (int i = 0; i < excludes.size(); i++) {
-                final JSONObject param = excludes.getJSONObject(i);
-                final String exclude = param.getString(itemName);
-
-                if (exclude.length() > 0) {
-                    descriptions.add(exclude);
-                }
-            }
-
-            return descriptions;
-        }
-
-        /**
-         * Return the checkstyle configuration.
-         */
-        public String getConfiguration() {
-            return configuration;
-        }
-
-        /**
-         * Sets the checkstyle configuration to be used for all NWDI checkstyle
-         * builders.
-         * 
-         * @param configuration
-         *            the configuration to set
-         */
-        public void setConfiguration(final String configuration) {
-            this.configuration = configuration;
-        }
-
-        /**
-         * Returns the list of file name patterns to exclude from checkstyle
-         * checks.
-         * 
-         * @return the list of file name patterns to exclude from checkstyle
-         *         checks.
-         */
-        public Collection<String> getExcludes() {
-            return excludes;
-        }
-
-        /**
-         * Sets the list of file name patterns to exclude from checkstyle
-         * checks.
-         * 
-         * @param excludes
-         *            the list of file name patterns to exclude from checkstyle
-         *            checks.
-         */
-        public void setExcludes(final Collection<String> excludes) {
-            this.excludes.clear();
-
-            if (excludes != null) {
-                this.excludes.addAll(excludes);
-            }
-        }
-
-        /**
-         * @return the excludeContainsRegexps
-         */
-        public Collection<String> getExcludeContainsRegexps() {
-            return excludeRegexps;
-        }
-
-        /**
-         * @param excludeContainsRegexps
-         *            the excludeContainsRegexps to set
-         */
-        public void setExcludeContainsRegexps(final Collection<String> excludeContainsRegexps) {
-            excludeRegexps.clear();
-
-            if (excludeContainsRegexps != null) {
-                excludeRegexps.addAll(excludeContainsRegexps);
-            }
         }
     }
 }

@@ -3,44 +3,4 @@
     To determine where this tag is defined, first check the namespace URI, and then look under $HUDSON/views/. For example, <f:section> is defined
     in $HUDSON/views/lib/form/section.jelly. It's also often useful to just check other similar scripts to see what tags they use. Views are always
     organized according to its owner class, so it should be straightforward to find them. -->
-  <f:section title="NWDI Checkstyle Builder">
-    <!-- optional @help points to the help document HTML. /plugin/NWDI-Checkstyle-Plugin is mapped to our webapp/ directory, so this is a convenient
-      way to serve static resources. -->
-    <f:entry title="${%Checkstyle configuration}" description="${%Upload your checkstyle configuration file.}" help="/plugin/NWDI-Checkstyle-Plugin/help-globalConfig.html">
-      <input type="file" name="checkstyle.checkStyleConfiguration" jsonAware="yes" />
-    </f:entry>
-    <f:optionalBlock name="checkstyle.advancedConfiguration" title="${%Advanced checkstyle configuration.}" checked="false">
-      <f:entry help="/plugin/NWDI-Checkstyle-Plugin/help-pattern.html" title="${%Exclude by Ant file name pattern.}">
-        <f:repeatable name="checkstyle.excludes" var="exclude" items="${descriptor.excludes}" noAddButton="true" minimum="1">
-          <table width="100%">
-            <f:entry>
-              <f:textbox name="exclude" value="${exclude}" />
-            </f:entry>
-            <f:entry>
-              <div align="right">
-                <input type="button" value="${%Add another exclude pattern...}" class="repeatable-add show-if-last" />
-                <input type="button" value="${%Delete}" class="repeatable-delete show-if-not-only" style="margin-left: 1em;" />
-              </div>
-            </f:entry>
-          </table>
-        </f:repeatable>
-      </f:entry>
-      <f:entry title="${%Exclude by regular expression of file content.}" help="/plugin/NWDI-Checkstyle-Plugin/help-pattern.html">
-        <f:repeatable name="checkstyle.excludeContainsRegexps" var="regexp" items="${descriptor.excludeContainsRegexps}"
-          noAddButton="true" minimum="1">
-          <table width="100%">
-            <f:entry>
-              <f:textbox name="regexp" value="${regexp}" />
-            </f:entry>
-            <f:entry>
-              <div align="right">
-                <input type="button" value="${%Add another regular expression...}" class="repeatable-add show-if-last" />
-                <input type="button" value="${%Delete}" class="repeatable-delete show-if-not-only" style="margin-left: 1em;" />
-              </div>
-            </f:entry>
-          </table>
-        </f:repeatable>
-      </f:entry>
-    </f:optionalBlock>
-  </f:section>
 </j:jelly>
