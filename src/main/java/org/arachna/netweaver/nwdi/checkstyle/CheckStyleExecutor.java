@@ -6,6 +6,7 @@ package org.arachna.netweaver.nwdi.checkstyle;
 import hudson.model.BuildListener;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 
@@ -21,163 +22,211 @@ import com.puppycrawl.tools.checkstyle.CheckStyleTask;
 
 /**
  * Execute a checkstyle check on a given development component.
- * 
+ *
  * @author Dirk Weigenand
  */
 final class CheckStyleExecutor {
-    /**
-     * template for path to source folder.
-     */
-    private static final String LOCATION_TEMPLATE = "%s/.dtc/DCs/%s/%s/_comp/%s";
+	/**
+	 * template for path to source folder.
+	 */
+	private static final String LOCATION_TEMPLATE = "%s/.dtc/DCs/%s/%s/_comp/%s";
 
-    /**
-     * template for path to source folder.
-     */
-    private static final String CHECKSTYLE_RESULT_LOCATION_TEMPLATE =
-        "%s/.dtc/DCs/%s/%s/_comp/gen/default/logs/checkstyle-result.xml";
+	/**
+	 * template for path to source folder.
+	 */
+	private static final String CHECKSTYLE_RESULT_LOCATION_TEMPLATE = "%s/.dtc/DCs/%s/%s/_comp/gen/default/logs/checkstyle-result.xml";
 
-    /**
-     * workspace folder.
-     */
-    private final String workspace;
+	/**
+	 * workspace folder.
+	 */
+	private final String workspace;
 
-    /**
-     * checkstyle configuration file.
-     */
-    private final File config;
+	/**
+	 * checkstyle configuration file.
+	 */
+	private final File config;
 
-    /**
-     * build listener for log messages.
-     */
-    private final BuildListener listener;
+	/**
+	 * build listener for log messages.
+	 */
+	private final BuildListener listener;
 
-    /**
-     * exclude patterns.
-     */
-    private final Collection<String> excludes = new HashSet<String>();
+	/**
+	 * exclude patterns.
+	 */
+	private final Collection<String> excludes = new HashSet<String>();
 
-    /**
-     * regular expressions for exclusion via file content.
-     */
-    private final Collection<String> regexps = new HashSet<String>();
+	/**
+	 * regular expressions for exclusion via file content.
+	 */
+	private final Collection<String> regexps = new HashSet<String>();
 
-    /**
-     * Create an instance of an {@link CheckStyleExecutor} with the given
-     * workspace location and checkstyle configuration file.
-     * 
-     * @param listener
-     *            build listener for logging
-     * @param workspace
-     *            the workspace where to operate from
-     * @param config
-     *            the checkstyle configuration file
-     * @param excludes
-     *            collection of ant exclude expressions for exclusion based on
-     *            file name patterns
-     * @param regexps
-     *            collection of regular expression for exclusion based on file
-     *            contents
-     * 
-     */
-    CheckStyleExecutor(final BuildListener listener, final String workspace, final File config,
-        final Collection<String> excludes, final Collection<String> regexps) {
-        this.listener = listener;
-        this.workspace = workspace;
-        this.config = config;
-        this.excludes.addAll(excludes);
-        this.regexps.addAll(regexps);
-    }
+	/**
+	 * Create an instance of an {@link CheckStyleExecutor} with the given
+	 * workspace location and checkstyle configuration file.
+	 *
+	 * @param listener
+	 *            build listener for logging
+	 * @param workspace
+	 *            the workspace where to operate from
+	 * @param config
+	 *            the checkstyle configuration file
+	 * @param excludes
+	 *            collection of ant exclude expressions for exclusion based on
+	 *            file name patterns
+	 * @param regexps
+	 *            collection of regular expression for exclusion based on file
+	 *            contents
+	 *
+	 */
+	CheckStyleExecutor(final BuildListener listener, final String workspace,
+			final File config, final Collection<String> excludes,
+			final Collection<String> regexps) {
+		this.listener = listener;
+		this.workspace = workspace;
+		this.config = config;
+		this.excludes.addAll(excludes);
+		this.regexps.addAll(regexps);
+	}
 
-    /**
-     * Executes the checkstyle check for the given development component.
-     * 
-     * @param component
-     *            the development component to execute a checkstyle check on.
-     */
-    void execute(final DevelopmentComponent component) {
-        if (!component.getSourceFolders().isEmpty()) {
-            final CheckStyleTask task = new CheckStyleTask();
+	/**
+	 * Executes the checkstyle check for the given development component.
+	 *
+	 * @param component
+	 *            the development component to execute a checkstyle check on.
+	 */
+	void execute(final DevelopmentComponent component) {
+		Collection<File> existingSourceFolders = getExistingSourceFolders(component);
 
-            final Project project = new Project();
-            task.setProject(project);
+		if (!existingSourceFolders.isEmpty()) {
+			final CheckStyleTask task = new CheckStyleTask();
 
-            for (final String srcFolder : component.getSourceFolders()) {
-                final FileSet fileSet = new FileSet();
-                fileSet.setDir(new File(this.getSourceFolderLocation(component, srcFolder)));
-                fileSet.setIncludes("**/*.java");
-                fileSet.appendExcludes(this.excludes.toArray(new String[this.excludes.size()]));
+			final Project project = new Project();
+			task.setProject(project);
 
-                if (this.regexps.size() > 0) {
-                    fileSet.add(this.createContainsRegexpSelectors());
-                }
+			createFileSet(existingSourceFolders, task);
 
-                task.addFileset(fileSet);
-            }
+			task.addFormatter(createFormatter(component));
+			task.setConfig(this.config);
+			task.setFailOnViolation(false);
+			this.listener.getLogger().append(
+					String.format("Running checkstyle analysis on %s/%s...",
+							component.getVendor(), component.getName()));
+			long start = System.currentTimeMillis();
+			task.execute();
+			this.listener.getLogger().append(
+					String.format(" (%f sec.)\n",
+							(System.currentTimeMillis() - start) / 1000f));
+		}
+	}
 
-            task.addFormatter(createFormatter(component));
-            task.setConfig(this.config);
-            task.setFailOnViolation(false);
-            this.listener.getLogger().append(
-                String.format("Running checkstyle analysis on %s/%s.\n", component.getVendor(), component.getName()));
-            task.execute();
-        }
-    }
+	private void createFileSet(Collection<File> existingSourceFolders,
+			final CheckStyleTask task) {
+		for (final File srcFolder : existingSourceFolders) {
+			final FileSet fileSet = new FileSet();
+			fileSet.setDir(srcFolder);
+			fileSet.setIncludes("**/*.java");
+			fileSet.appendExcludes(this.excludes
+					.toArray(new String[this.excludes.size()]));
 
-    private FileSelector createContainsRegexpSelectors() {
-        final OrSelector or = new OrSelector();
+			if (this.regexps.size() > 0) {
+				fileSet.add(this.createContainsRegexpSelectors());
+			}
 
-        for (final String containsRegexp : this.regexps) {
-            final ContainsRegexpSelector selector = new ContainsRegexpSelector();
-            selector.setExpression(containsRegexp);
-            or.add(selector);
-        }
+			task.addFileset(fileSet);
+		}
+	}
 
-        return new NotSelector(or);
-    }
+	/**
+	 * Iterate over the DCs source folders and return those that actually exist
+	 * in the file system.
+	 *
+	 * @param component
+	 *            development component to get the existing source folders for.
+	 * @return source folders that exist in the DCs directory structure.
+	 */
+	private Collection<File> getExistingSourceFolders(
+			DevelopmentComponent component) {
+		Collection<File> sourceFolders = new ArrayList<File>();
 
-    /**
-     * Creates a {@link CheckStyleTask.Formatter} object based on the given
-     * development component.
-     * 
-     * The development component determines where the checkstyle result file can
-     * be found.
-     * 
-     * @param component
-     *            development component the formatter should be created for.
-     * @return a checkstyle formatter object.
-     */
-    private CheckStyleTask.Formatter createFormatter(final DevelopmentComponent component) {
-        final CheckStyleTask.Formatter formatter = new CheckStyleTask.Formatter();
-        formatter.setTofile(createResultFile(component));
-        formatter.setUseFile(true);
+		for (String sourceFolder : component.getSourceFolders()) {
+			File folder = this.getSourceFolderLocation(component, sourceFolder);
 
-        final CheckStyleTask.FormatterType formatterType = new CheckStyleTask.FormatterType();
-        formatterType.setValue("xml");
-        formatter.setType(formatterType);
+			if (folder.exists()) {
+				sourceFolders.add(folder);
+			} else {
+				this.listener.getLogger().append(
+						String.format(
+								"Source folder %s does not exist in %s/%s!",
+								folder.getName(), component.getVendor(),
+								component.getName()));
+			}
+		}
 
-        return formatter;
-    }
+		return sourceFolders;
+	}
 
-    /**
-     * Get the base path of the current component (its '_comp' folder).
-     * 
-     * @return the base path of the current component (its '_comp' folder).
-     */
-    private String getSourceFolderLocation(final DevelopmentComponent component, final String sourceFolder) {
-        return String.format(LOCATION_TEMPLATE, this.workspace, component.getVendor(), component.getName(),
-            sourceFolder).replace('/', File.separatorChar);
-    }
+	private FileSelector createContainsRegexpSelectors() {
+		final OrSelector or = new OrSelector();
 
-    /**
-     * Create a file object where the checkstlye result shall be written to.
-     * 
-     * @param component
-     *            the development component which is used to determine the place
-     *            to write the result to.
-     * @return file object where checkstyle result shall be written to.
-     */
-    private File createResultFile(final DevelopmentComponent component) {
-        return new File(String.format(CHECKSTYLE_RESULT_LOCATION_TEMPLATE, this.workspace, component.getVendor(),
-            component.getName()).replace('/', File.separatorChar));
-    }
+		for (final String containsRegexp : this.regexps) {
+			final ContainsRegexpSelector selector = new ContainsRegexpSelector();
+			selector.setExpression(containsRegexp);
+			or.add(selector);
+		}
+
+		return new NotSelector(or);
+	}
+
+	/**
+	 * Creates a {@link CheckStyleTask.Formatter} object based on the given
+	 * development component.
+	 *
+	 * The development component determines where the checkstyle result file can
+	 * be found.
+	 *
+	 * @param component
+	 *            development component the formatter should be created for.
+	 * @return a checkstyle formatter object.
+	 */
+	private CheckStyleTask.Formatter createFormatter(
+			final DevelopmentComponent component) {
+		final CheckStyleTask.Formatter formatter = new CheckStyleTask.Formatter();
+		formatter.setTofile(createResultFile(component));
+		formatter.setUseFile(true);
+
+		final CheckStyleTask.FormatterType formatterType = new CheckStyleTask.FormatterType();
+		formatterType.setValue("xml");
+		formatter.setType(formatterType);
+
+		return formatter;
+	}
+
+	/**
+	 * Get a file object pointing to the given source folders location in the
+	 * development components directory structure.
+	 *
+	 * @return the file object representing the source folder in the DCs
+	 *         directory structure.
+	 */
+	private File getSourceFolderLocation(final DevelopmentComponent component,
+			final String sourceFolder) {
+		return new File(String.format(LOCATION_TEMPLATE, this.workspace,
+				component.getVendor(), component.getName(), sourceFolder)
+				.replace('/', File.separatorChar));
+	}
+
+	/**
+	 * Create a file object where the checkstlye result shall be written to.
+	 *
+	 * @param component
+	 *            the development component which is used to determine the place
+	 *            to write the result to.
+	 * @return file object where checkstyle result shall be written to.
+	 */
+	private File createResultFile(final DevelopmentComponent component) {
+		return new File(String.format(CHECKSTYLE_RESULT_LOCATION_TEMPLATE,
+				this.workspace, component.getVendor(), component.getName())
+				.replace('/', File.separatorChar));
+	}
 }
