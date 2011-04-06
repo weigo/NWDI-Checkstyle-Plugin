@@ -33,262 +33,288 @@ import org.kohsuke.stapler.StaplerRequest;
 
 /**
  * Sample {@link Builder}.
- * 
+ *
  * <p>
  * When the user configures the project and enables this builder,
  * {@link DescriptorImpl#newInstance(StaplerRequest)} is invoked and a new
  * {@link CheckstyleBuilder} is created. The created instance is persisted to
  * the project configuration XML by using XStream, so this allows you to use
  * instance fields (like {@link #name}) to remember the configuration.
- * 
+ *
  * <p>
  * When a build is performed, the
  * {@link #perform(AbstractBuild, Launcher, BuildListener)} method will be
  * invoked.
- * 
+ *
  * @author Kohsuke Kawaguchi
  */
 public final class CheckstyleBuilder extends Builder {
-    /**
-     * Descriptor for {@link CheckstyleBuilder}.
-     */
-    @Extension(ordinal = 1000)
-    public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
+	/**
+	 * Descriptor for {@link CheckstyleBuilder}.
+	 */
+	@Extension(ordinal = 1000)
+	public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
-    /**
-     * Name of checkstyle configuration file in workspace.
-     */
-    private static final String CHECKSTYLE_CONFIG_XML = "checkstyle-config.xml";
+	/**
+	 * Name of checkstyle configuration file in workspace.
+	 */
+	private static final String CHECKSTYLE_CONFIG_XML = "checkstyle-config.xml";
 
-    /**
-     * Content of uploaded checkstyle configuration.
-     */
-    private String configuration;
+	/**
+	 * Content of uploaded checkstyle configuration.
+	 */
+	private String configuration;
 
-    /**
-     * set of filename patterns to exclude from checkstyle checks.
-     */
-    private final Collection<String> excludes = new HashSet<String>();
+	/**
+	 * set of filename patterns to exclude from checkstyle checks.
+	 */
+	private final Collection<String> excludes = new HashSet<String>();
 
-    /**
-     * set of regular expressions to exclude files from checkstyle checks via
-     * their content.
-     */
-    private final Collection<String> excludeRegexps = new HashSet<String>();
+	/**
+	 * set of regular expressions to exclude files from checkstyle checks via
+	 * their content.
+	 */
+	private final Collection<String> excludeRegexps = new HashSet<String>();
 
-    /**
-     * Data bound constructor. Used for populating a {@link CheckstyleBuilder}
-     * instance from form fields in <code>config.jelly</code>.
-     */
-    @DataBoundConstructor
-    public CheckstyleBuilder(final FileItem configuration, final JSONObject advancedConfiguration) {
-        if (configuration != null) {
-            final String content = configuration.getString();
+	/**
+	 * Data bound constructor. Used for populating a {@link CheckstyleBuilder}
+	 * instance from form fields in <code>config.jelly</code>.
+	 */
+	@DataBoundConstructor
+	public CheckstyleBuilder(final FileItem configuration,
+			final JSONObject advancedConfiguration) {
+		if (configuration != null) {
+			final String content = configuration.getString();
 
-            if (content != null && content.trim().length() > 0) {
-                this.configuration = content;
-            }
-        }
+			if (content != null && content.trim().length() > 0) {
+				this.configuration = content;
+			}
+		}
 
-        excludes.addAll(getExcludeItemDescriptions(advancedConfiguration, "excludes", "exclude"));
-        excludeRegexps.addAll(getExcludeItemDescriptions(advancedConfiguration, "excludeContainsRegexps", "regexp"));
-    }
+		if (advancedConfiguration != null) {
+			excludes.addAll(getExcludeItemDescriptions(advancedConfiguration,
+					"excludes", "exclude"));
+			excludeRegexps.addAll(getExcludeItemDescriptions(
+					advancedConfiguration, "excludeContainsRegexps", "regexp"));
+		}
+	}
 
-    /**
-     * 
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean perform(final AbstractBuild<?, ?> build, final Launcher launcher, final BuildListener listener) {
-        boolean result = true;
-        final ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
+	/**
+	 *
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean perform(final AbstractBuild<?, ?> build,
+			final Launcher launcher, final BuildListener listener) {
+		boolean result = true;
+		final ClassLoader oldClassLoader = Thread.currentThread()
+				.getContextClassLoader();
 
-        try {
-            final NWDIBuild nwdiBuild = (NWDIBuild)build;
-            final Collection<DevelopmentComponent> components = nwdiBuild.getAffectedDevelopmentComponents();
-            nwdiBuild.getWorkspace().child(CHECKSTYLE_CONFIG_XML).write(getConfiguration(), "UTF-8");
+		try {
+			final NWDIBuild nwdiBuild = (NWDIBuild) build;
 
-            final PluginWrapper pluginWrapper =
-                Hudson.getInstance().getPluginManager().getPlugin("NWDI-Checkstyle-Plugin");
-            final PluginFirstClassLoader pluginFirstClassLoader = (PluginFirstClassLoader)pluginWrapper.classLoader;
-            Thread.currentThread().setContextClassLoader(pluginFirstClassLoader);
+			if (null == getConfiguration()) {
+				listener.getLogger().append(
+						"This project has no checkstyle configuration!");
+				result = false;
+			} else {
+				nwdiBuild.getWorkspace().child(CHECKSTYLE_CONFIG_XML)
+						.write(getConfiguration(), "UTF-8");
 
-            final CheckStyleExecutor executor = createExecutor(nwdiBuild, listener);
+				final PluginWrapper pluginWrapper = Hudson.getInstance()
+						.getPluginManager().getPlugin("NWDI-Checkstyle-Plugin");
+				final PluginFirstClassLoader pluginFirstClassLoader = (PluginFirstClassLoader) pluginWrapper.classLoader;
+				Thread.currentThread().setContextClassLoader(
+						pluginFirstClassLoader);
 
-            for (final DevelopmentComponent component : components) {
-                executor.execute(component);
-            }
-        }
-        catch (final IOException e) {
-            e.printStackTrace(listener.getLogger());
-            result = false;
-        }
-        catch (final InterruptedException e) {
-            e.printStackTrace(listener.getLogger());
-            // finish.
-        }
-        finally {
-            Thread.currentThread().setContextClassLoader(oldClassLoader);
-        }
+				final CheckStyleExecutor executor = createExecutor(nwdiBuild,
+						listener);
 
-        return result;
-    }
+				final Collection<DevelopmentComponent> components = nwdiBuild
+						.getAffectedDevelopmentComponents();
 
-    /**
-     * Create a {@link CheckStyleExecutor} using the given {@link NWDIBuild}.
-     * 
-     * @param nwdiBuild
-     *            build object
-     * @return the checkstyle executor object executing the analysis.
-     */
-    protected CheckStyleExecutor createExecutor(final NWDIBuild nwdiBuild, final BuildListener listener) {
-        final String pathToWorkspace = FilePathHelper.makeAbsolute(nwdiBuild.getWorkspace());
+				for (final DevelopmentComponent component : components) {
+					executor.execute(component);
+				}
+			}
+		} catch (final IOException e) {
+			e.printStackTrace(listener.getLogger());
+			result = false;
+		} catch (final InterruptedException e) {
+			e.printStackTrace(listener.getLogger());
+			// finish.
+		} finally {
+			Thread.currentThread().setContextClassLoader(oldClassLoader);
+		}
 
-        return new CheckStyleExecutor(listener, pathToWorkspace, new File(pathToWorkspace + File.separatorChar
-            + CHECKSTYLE_CONFIG_XML), getExcludes(), getExcludeContainsRegexps());
-    }
+		return result;
+	}
 
-    /**
-     * Extract item descriptions for exclusion from analysis.
-     * 
-     * @param formData
-     *            JSON form containing configuration data.
-     * @param formName
-     *            name of JSON form element to extract item descriptions from.
-     * @param itemName
-     *            name of configuration form item.
-     * 
-     * @return collection of item descriptions to exclude from checkstyle
-     *         analysis
-     */
-    protected Collection<String> getExcludeItemDescriptions(final JSONObject advancedConfig, final String formName,
-        final String itemName) {
-        final Collection<String> descriptions = new HashSet<String>();
-        final JSONArray configItem = JSONArray.fromObject(advancedConfig.get(formName));
+	/**
+	 * Create a {@link CheckStyleExecutor} using the given {@link NWDIBuild}.
+	 *
+	 * @param nwdiBuild
+	 *            build object
+	 * @return the checkstyle executor object executing the analysis.
+	 */
+	protected CheckStyleExecutor createExecutor(final NWDIBuild nwdiBuild,
+			final BuildListener listener) {
+		final String pathToWorkspace = FilePathHelper.makeAbsolute(nwdiBuild
+				.getWorkspace());
 
-        for (int i = 0; i < configItem.size(); i++) {
-            final JSONObject param = configItem.getJSONObject(i);
-            final String item = param.getString(itemName);
+		return new CheckStyleExecutor(listener, pathToWorkspace, new File(
+				pathToWorkspace + File.separatorChar + CHECKSTYLE_CONFIG_XML),
+				getExcludes(), getExcludeContainsRegexps());
+	}
 
-            if (item.length() > 0) {
-                descriptions.add(item);
-            }
-        }
+	/**
+	 * Extract item descriptions for exclusion from analysis.
+	 *
+	 * @param formData
+	 *            JSON form containing configuration data.
+	 * @param formName
+	 *            name of JSON form element to extract item descriptions from.
+	 * @param itemName
+	 *            name of configuration form item.
+	 *
+	 * @return collection of item descriptions to exclude from checkstyle
+	 *         analysis
+	 */
+	protected Collection<String> getExcludeItemDescriptions(
+			final JSONObject advancedConfig, final String formName,
+			final String itemName) {
+		final Collection<String> descriptions = new HashSet<String>();
+		final JSONArray configItem = JSONArray.fromObject(advancedConfig
+				.get(formName));
 
-        return descriptions;
-    }
+		for (int i = 0; i < configItem.size(); i++) {
+			final JSONObject param = configItem.getJSONObject(i);
+			final String item = param.getString(itemName);
 
-    /**
-     * Return the checkstyle configuration.
-     */
-    public String getConfiguration() {
-        return configuration;
-    }
+			if (item.length() > 0) {
+				descriptions.add(item);
+			}
+		}
 
-    /**
-     * Sets the checkstyle configuration to be used for all NWDI checkstyle
-     * builders.
-     * 
-     * @param configuration
-     *            the configuration to set
-     */
-    public void setConfiguration(final String configuration) {
-        this.configuration = configuration;
-    }
+		return descriptions;
+	}
 
-    /**
-     * Returns the list of file name patterns to exclude from checkstyle checks.
-     * 
-     * @return the list of file name patterns to exclude from checkstyle checks.
-     */
-    public Collection<String> getExcludes() {
-        return excludes;
-    }
+	/**
+	 * Return the checkstyle configuration.
+	 */
+	public String getConfiguration() {
+		return configuration;
+	}
 
-    /**
-     * Sets the list of file name patterns to exclude from checkstyle checks.
-     * 
-     * @param excludes
-     *            the list of file name patterns to exclude from checkstyle
-     *            checks.
-     */
-    public void setExcludes(final Collection<String> excludes) {
-        this.excludes.clear();
+	/**
+	 * Sets the checkstyle configuration to be used for all NWDI checkstyle
+	 * builders.
+	 *
+	 * @param configuration
+	 *            the configuration to set
+	 */
+	public void setConfiguration(final String configuration) {
+		this.configuration = configuration;
+	}
 
-        if (excludes != null) {
-            this.excludes.addAll(excludes);
-        }
-    }
+	/**
+	 * Returns the list of file name patterns to exclude from checkstyle checks.
+	 *
+	 * @return the list of file name patterns to exclude from checkstyle checks.
+	 */
+	public Collection<String> getExcludes() {
+		return excludes;
+	}
 
-    /**
-     * @return the excludeContainsRegexps
-     */
-    public Collection<String> getExcludeContainsRegexps() {
-        return excludeRegexps;
-    }
+	/**
+	 * Sets the list of file name patterns to exclude from checkstyle checks.
+	 *
+	 * @param excludes
+	 *            the list of file name patterns to exclude from checkstyle
+	 *            checks.
+	 */
+	public void setExcludes(final Collection<String> excludes) {
+		this.excludes.clear();
 
-    /**
-     * @param excludeContainsRegexps
-     *            the excludeContainsRegexps to set
-     */
-    public void setExcludeContainsRegexps(final Collection<String> excludeContainsRegexps) {
-        excludeRegexps.clear();
+		if (excludes != null) {
+			this.excludes.addAll(excludes);
+		}
+	}
 
-        if (excludeContainsRegexps != null) {
-            excludeRegexps.addAll(excludeContainsRegexps);
-        }
-    }
+	/**
+	 * @return the excludeContainsRegexps
+	 */
+	public Collection<String> getExcludeContainsRegexps() {
+		return excludeRegexps;
+	}
 
-    /**
-     * 
-     * {@inheritDoc}
-     */
-    @Override
-    public DescriptorImpl getDescriptor() {
-        return DESCRIPTOR;
-    }
+	/**
+	 * @param excludeContainsRegexps
+	 *            the excludeContainsRegexps to set
+	 */
+	public void setExcludeContainsRegexps(
+			final Collection<String> excludeContainsRegexps) {
+		excludeRegexps.clear();
 
-    /**
-     * Descriptor for {@link CheckstyleBuilder}.
-     */
-    public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
-        /**
-         * Create descriptor for NWDI-CheckStyle-Builder and load global
-         * configuration data.
-         */
-        public DescriptorImpl() {
-            load();
-        }
+		if (excludeContainsRegexps != null) {
+			excludeRegexps.addAll(excludeContainsRegexps);
+		}
+	}
 
-        /**
-         * Performs on-the-fly validation of the form field 'name'.
-         * 
-         * @param value
-         *            This parameter receives the value that the user has typed.
-         * @return Indicates the outcome of the validation. This is sent to the
-         *         browser.
-         */
-        public FormValidation doCheckConfiguration(@QueryParameter final String value) throws IOException,
-            ServletException {
-            return value.length() == 0 ? FormValidation.error("Please insert a checkstyle configuration.")
-                : FormValidation.ok();
-        }
+	/**
+	 *
+	 * {@inheritDoc}
+	 */
+	@Override
+	public DescriptorImpl getDescriptor() {
+		return DESCRIPTOR;
+	}
 
-        /**
-         * 
-         * {@inheritDoc}
-         */
-        @Override
-        public boolean isApplicable(final Class<? extends AbstractProject> aClass) {
-            return NWDIProject.class.equals(aClass);
-        }
+	/**
+	 * Descriptor for {@link CheckstyleBuilder}.
+	 */
+	public static final class DescriptorImpl extends
+			BuildStepDescriptor<Builder> {
+		/**
+		 * Create descriptor for NWDI-CheckStyle-Builder and load global
+		 * configuration data.
+		 */
+		public DescriptorImpl() {
+			load();
+		}
 
-        /**
-         * This human readable name is used in the configuration screen.
-         */
-        @Override
-        public String getDisplayName() {
-            return "NWDI Checkstyle";
-        }
-    }
+		/**
+		 * Performs on-the-fly validation of the form field 'name'.
+		 *
+		 * @param value
+		 *            This parameter receives the value that the user has typed.
+		 * @return Indicates the outcome of the validation. This is sent to the
+		 *         browser.
+		 */
+		public FormValidation doCheckConfiguration(
+				@QueryParameter final String value) throws IOException,
+				ServletException {
+			return value.length() == 0 ? FormValidation
+					.error("Please insert a checkstyle configuration.")
+					: FormValidation.ok();
+		}
+
+		/**
+		 *
+		 * {@inheritDoc}
+		 */
+		@Override
+		public boolean isApplicable(
+				final Class<? extends AbstractProject> aClass) {
+			return NWDIProject.class.equals(aClass);
+		}
+
+		/**
+		 * This human readable name is used in the configuration screen.
+		 */
+		@Override
+		public String getDisplayName() {
+			return "NWDI Checkstyle";
+		}
+	}
 }
