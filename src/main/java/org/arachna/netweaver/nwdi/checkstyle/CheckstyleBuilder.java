@@ -120,7 +120,8 @@ public class CheckstyleBuilder extends Builder {
         final DescriptorImpl descriptor = getDescriptor();
 
         return new CheckStyleExecutor(listener, pathToWorkspace, new File(pathToWorkspace + File.separatorChar
-            + CHECKSTYLE_CONFIG_XML), descriptor.getExcludes(), descriptor.getExcludeContainsRegexps());
+            + CHECKSTYLE_CONFIG_XML), descriptor.getExcludes(), descriptor.getExcludeContainsRegexps(),
+            nwdiBuild.getDevelopmentComponentFactory());
     }
 
     /**

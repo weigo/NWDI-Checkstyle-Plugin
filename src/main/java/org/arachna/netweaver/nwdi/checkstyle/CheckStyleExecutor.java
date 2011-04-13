@@ -12,11 +12,14 @@ import java.util.HashSet;
 
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.selectors.ContainsRegexpSelector;
 import org.apache.tools.ant.types.selectors.FileSelector;
 import org.apache.tools.ant.types.selectors.NotSelector;
 import org.apache.tools.ant.types.selectors.OrSelector;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
+import org.arachna.netweaver.dc.types.DevelopmentComponentFactory;
+import org.arachna.netweaver.dc.types.PublicPartReference;
 
 import com.puppycrawl.tools.checkstyle.CheckStyleTask;
 
@@ -62,6 +65,11 @@ final class CheckStyleExecutor {
     private final Collection<String> regexps = new HashSet<String>();
 
     /**
+     * registry for development components.
+     */
+    private DevelopmentComponentFactory dcFactory;
+
+    /**
      * Create an instance of an {@link CheckStyleExecutor} with the given
      * workspace location and checkstyle configuration file.
      *
@@ -80,10 +88,11 @@ final class CheckStyleExecutor {
      *
      */
     CheckStyleExecutor(final BuildListener listener, final String workspace, final File config,
-        final Collection<String> excludes, final Collection<String> regexps) {
+        final Collection<String> excludes, final Collection<String> regexps, DevelopmentComponentFactory dcFactory) {
         this.listener = listener;
         this.workspace = workspace;
         this.config = config;
+        this.dcFactory = dcFactory;
         this.excludes.addAll(excludes);
         this.regexps.addAll(regexps);
     }
@@ -114,6 +123,7 @@ final class CheckStyleExecutor {
                 }
             }
 
+            task.setClasspath(this.createClassPath(project, component));
             task.addFormatter(createFormatter(component, resultFile));
             task.setConfig(this.config);
             task.setFailOnViolation(false);
@@ -216,7 +226,7 @@ final class CheckStyleExecutor {
     }
 
     /**
-     * Create a file object where the checkstlye result shall be written to.
+     * Create a file object where the checkstyle result shall be written to.
      *
      * @param component
      *            the development component which is used to determine the place
@@ -226,5 +236,32 @@ final class CheckStyleExecutor {
     private File createResultFile(final DevelopmentComponent component) {
         return new File(String.format(CHECKSTYLE_RESULT_LOCATION_TEMPLATE, this.workspace, component.getVendor(),
             component.getName().replace('/', '~')).replace('/', File.separatorChar));
+    }
+
+    private static final String GEN_DEFAULT_LOCATION = "%s/.dtc/DCs/%s/%s/_comp/gen/default";
+
+    private Path createClassPath(Project project, DevelopmentComponent component) {
+        Path path = new Path(project);
+
+        for (PublicPartReference ppRef : component.getUsedDevelopmentComponents()) {
+            DevelopmentComponent referencedDC = dcFactory.get(ppRef.getVendor(), ppRef.getComponentName());
+
+            if (referencedDC != null) {
+                String genDefaultLocation =
+                    String.format(GEN_DEFAULT_LOCATION, this.workspace, referencedDC.getVendor(),
+                        referencedDC.getName());
+                FileSet fileSet = new FileSet();
+                fileSet.setDir(new File(genDefaultLocation));
+                fileSet.appendIncludes(new String[] { "**/*.jar", "**/*.par", "**/*.ear", "**/*.wda" });
+                path.addFileset(fileSet);
+            }
+            else {
+                this.listener.getLogger().append(
+                    String.format("Referenced DC %s:%s not found in DC factory!", ppRef.getVendor(),
+                        ppRef.getComponentName()));
+            }
+        }
+
+        return path;
     }
 }
