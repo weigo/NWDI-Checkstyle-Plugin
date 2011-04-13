@@ -5,7 +5,7 @@
     This configuration file was written by the eclipse-cs plugin configuration editor
 -->
 <!--
-    Checkstyle-Configuration: interne GISA Coding Conventions
+    Checkstyle-Configuration: GISA Checkstyle
     Description: none
 -->
 <module name="Checker">
@@ -144,13 +144,147 @@
       <property name="max" value="140"/>
     </module>
     <module name="JavadocMethod">
-      <property name="logLoadErrors" value="true"/>
       <property name="suppressLoadErrors" value="true"/>
     </module>
     <module name="JavadocStyle"/>
     <module name="JavadocType"/>
     <module name="JavadocVariable"/>
     <module name="WriteTag"/>
+    <module name="PackageName">
+      <property name="severity" value="error"/>
+    </module>
+    <module name="MethodName">
+      <property name="severity" value="error"/>
+    </module>
+    <module name="MemberName">
+      <property name="severity" value="error"/>
+    </module>
+    <module name="RedundantImport">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="UnusedImports">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="LineLength">
+      <property name="severity" value="warning"/>
+      <property name="max" value="140"/>
+      <property name="tabWidth" value="4"/>
+    </module>
+    <module name="MethodLength">
+      <property name="severity" value="error"/>
+    </module>
+    <module name="ParameterNumber">
+      <property name="severity" value="error"/>
+    </module>
+    <module name="AvoidNestedBlocks">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="EmptyBlock">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="NeedBraces">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="AvoidInlineConditionals">
+      <property name="severity" value="ignore"/>
+      <metadata name="net.sf.eclipsecs.core.lastEnabledSeverity" value="inherit"/>
+    </module>
+    <module name="CovariantEquals">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="DefaultComesLast">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="EmptyStatement">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="EqualsAvoidNull">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="EqualsHashCode">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="ExplicitInitialization">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="FallThrough">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="HiddenField">
+      <property name="severity" value="ignore"/>
+      <metadata name="net.sf.eclipsecs.core.lastEnabledSeverity" value="inherit"/>
+    </module>
+    <module name="HiddenField">
+      <property name="ignoreConstructorParameter" value="true"/>
+      <property name="ignoreSetter" value="true"/>
+      <property name="ignoreAbstractMethods" value="true"/>
+    </module>
+    <module name="IllegalInstantiation"/>
+    <module name="IllegalCatch">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="IllegalThrows">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="IllegalToken">
+      <property name="tokens" value="POST_INC,POST_DEC,LITERAL_SWITCH"/>
+    </module>
+    <module name="JUnitTestCase">
+      <property name="severity" value="error"/>
+    </module>
+    <module name="MagicNumber">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="ModifiedControlVariable">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="MultipleStringLiterals">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="MultipleVariableDeclarations">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="NestedForDepth">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="NestedIfDepth">
+      <property name="severity" value="warning"/>
+      <property name="max" value="2"/>
+    </module>
+    <module name="NestedTryDepth">
+      <property name="severity" value="warning"/>
+      <property name="max" value="2"/>
+    </module>
+    <module name="ParameterAssignment">
+      <property name="severity" value="error"/>
+    </module>
+    <module name="ReturnCount">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="SimplifyBooleanExpression">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="SimplifyBooleanReturn">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="UnnecessaryParentheses">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="BooleanExpressionComplexity">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="CyclomaticComplexity">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="JavaNCSS">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="NPathComplexity">
+      <property name="severity" value="warning"/>
+    </module>
+    <module name="TodoComment">
+      <property name="severity" value="warning"/>
+    </module>
   </module>
   <module name="NewlineAtEndOfFile">
     <property name="severity" value="ignore"/>
