@@ -3,23 +3,14 @@
  */
 package org.arachna.netweaver.nwdi.checkstyle;
 
-import hudson.model.BuildListener;
-
 import java.io.File;
-import java.util.ArrayList;
+import java.io.PrintStream;
 import java.util.Collection;
-import java.util.HashSet;
 
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.FileSet;
-import org.apache.tools.ant.types.Path;
-import org.apache.tools.ant.types.selectors.ContainsRegexpSelector;
-import org.apache.tools.ant.types.selectors.FileSelector;
-import org.apache.tools.ant.types.selectors.NotSelector;
-import org.apache.tools.ant.types.selectors.OrSelector;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
-import org.arachna.netweaver.dc.types.DevelopmentComponentFactory;
-import org.arachna.netweaver.dc.types.PublicPartReference;
+import org.arachna.netweaver.nwdi.checkstyle.CheckstyleBuilder.DescriptorImpl;
 
 import com.puppycrawl.tools.checkstyle.CheckStyleTask;
 
@@ -32,42 +23,27 @@ final class CheckStyleExecutor {
     /**
      * template for path to source folder.
      */
-    private static final String LOCATION_TEMPLATE = "%s/.dtc/DCs/%s/%s/_comp/%s";
-
-    /**
-     * template for path to source folder.
-     */
     private static final String CHECKSTYLE_RESULT_LOCATION_TEMPLATE = "%s/checkstyle/%s~%s/checkstyle-result.xml";
 
     /**
-     * workspace folder.
-     */
-    private final String workspace;
-
-    /**
-     * checkstyle configuration file.
+     * Checkstyle configuration file.
      */
     private final File config;
 
     /**
-     * build listener for log messages.
+     * Logger.
      */
-    private final BuildListener listener;
+    private final PrintStream logger;
 
     /**
-     * exclude patterns.
+     * descriptor of checkstyle builder.
      */
-    private final Collection<String> excludes = new HashSet<String>();
+    private DescriptorImpl descriptor;
 
     /**
-     * regular expressions for exclusion via file content.
+     * helper for populating properties of the checkstyle ant task
      */
-    private final Collection<String> regexps = new HashSet<String>();
-
-    /**
-     * registry for development components.
-     */
-    private DevelopmentComponentFactory dcFactory;
+    private AntHelper antHelper;
 
     /**
      * Create an instance of an {@link CheckStyleExecutor} with the given
@@ -75,26 +51,21 @@ final class CheckStyleExecutor {
      *
      * @param listener
      *            build listener for logging
-     * @param workspace
-     *            the workspace where to operate from
+     * @param antHelper
+     *            helper class for populating the checkstyle ant task's file
+     *            sets, class path etc.
      * @param config
      *            the checkstyle configuration file
-     * @param excludes
-     *            collection of ant exclude expressions for exclusion based on
-     *            file name patterns
-     * @param regexps
-     *            collection of regular expression for exclusion based on file
-     *            contents
+     * @param descriptor
+     *            the descriptor of checkstyle builder
      *
      */
-    CheckStyleExecutor(final BuildListener listener, final String workspace, final File config,
-        final Collection<String> excludes, final Collection<String> regexps, DevelopmentComponentFactory dcFactory) {
-        this.listener = listener;
-        this.workspace = workspace;
+    CheckStyleExecutor(final PrintStream logger, final AntHelper antHelper, final File config,
+        final DescriptorImpl descriptor) {
+        this.logger = logger;
+        this.antHelper = antHelper;
         this.config = config;
-        this.dcFactory = dcFactory;
-        this.excludes.addAll(excludes);
-        this.regexps.addAll(regexps);
+        this.descriptor = descriptor;
     }
 
     /**
@@ -104,90 +75,52 @@ final class CheckStyleExecutor {
      *            the development component to execute a checkstyle check on.
      */
     void execute(final DevelopmentComponent component) {
-        Collection<File> existingSourceFolders = getExistingSourceFolders(component);
+        Collection<File> existingSourceFolders = this.antHelper.getExistingSourceFolders(component);
 
         if (!existingSourceFolders.isEmpty()) {
-            final CheckStyleTask task = new CheckStyleTask();
-
-            final Project project = new Project();
-            task.setProject(project);
-
-            createFileSet(existingSourceFolders, task);
             File resultFile = createResultFile(component);
 
             if (!resultFile.getParentFile().exists()) {
                 if (!resultFile.getParentFile().mkdirs()) {
-                    this.listener.getLogger().append(
-                        resultFile.getParentFile().getAbsolutePath() + " could not be created!");
+                    this.logger.append(resultFile.getParentFile().getAbsolutePath() + " could not be created!");
                     return;
                 }
             }
 
-            task.setClasspath(this.createClassPath(project, component));
-            task.addFormatter(createFormatter(component, resultFile));
-            task.setConfig(this.config);
-            task.setFailOnViolation(false);
-            this.listener.getLogger().append(
-                String.format("Running checkstyle analysis on %s/%s...", component.getVendor(), component.getName()));
+            final CheckStyleTask task = createCheckStyleTask(component, resultFile);
+
+            this.logger.append(String.format("Running checkstyle analysis on %s/%s...", component.getVendor(),
+                component.getName()));
             long start = System.currentTimeMillis();
             task.execute();
-            this.listener.getLogger().append(
-                String.format(" (%f sec.)\n", (System.currentTimeMillis() - start) / 1000f));
-        }
-    }
-
-    private void createFileSet(Collection<File> existingSourceFolders, final CheckStyleTask task) {
-        for (final File srcFolder : existingSourceFolders) {
-            final FileSet fileSet = new FileSet();
-            fileSet.setDir(srcFolder);
-            fileSet.setIncludes("**/*.java");
-            fileSet.appendExcludes(this.excludes.toArray(new String[this.excludes.size()]));
-
-            if (this.regexps.size() > 0) {
-                fileSet.add(this.createContainsRegexpSelectors());
-            }
-
-            task.addFileset(fileSet);
+            this.logger.append(String.format(" (%f sec.)\n", (System.currentTimeMillis() - start) / 1000f));
         }
     }
 
     /**
-     * Iterate over the DCs source folders and return those that actually exist
-     * in the file system.
+     * Sets up an instance of a checkstyle ant task with the source folders
+     * associated with the given development component.
      *
      * @param component
-     *            development component to get the existing source folders for.
-     * @return source folders that exist in the DCs directory structure.
+     * @param resultFile
+     * @return
      */
-    private Collection<File> getExistingSourceFolders(DevelopmentComponent component) {
-        Collection<File> sourceFolders = new ArrayList<File>();
+    private CheckStyleTask createCheckStyleTask(final DevelopmentComponent component, File resultFile) {
+        final CheckStyleTask task = new CheckStyleTask();
 
-        for (String sourceFolder : component.getSourceFolders()) {
-            File folder = this.getSourceFolderLocation(component, sourceFolder);
+        final Project project = new Project();
+        task.setProject(project);
 
-            if (folder.exists()) {
-                sourceFolders.add(folder);
-            }
-            else {
-                this.listener.getLogger().append(
-                    String.format("Source folder %s does not exist in %s/%s!", folder.getName(), component.getVendor(),
-                        component.getName()));
-            }
+        for (FileSet sources : antHelper.createSourceFileSets(component, this.descriptor.getExcludes(),
+            this.descriptor.getExcludeContainsRegexps())) {
+            task.addFileset(sources);
         }
 
-        return sourceFolders;
-    }
-
-    private FileSelector createContainsRegexpSelectors() {
-        final OrSelector or = new OrSelector();
-
-        for (final String containsRegexp : this.regexps) {
-            final ContainsRegexpSelector selector = new ContainsRegexpSelector();
-            selector.setExpression(containsRegexp);
-            or.add(selector);
-        }
-
-        return new NotSelector(or);
+        task.setClasspath(this.antHelper.createClassPath(project, component));
+        task.addFormatter(createFormatter(component, resultFile));
+        task.setConfig(this.config);
+        task.setFailOnViolation(false);
+        return task;
     }
 
     /**
@@ -214,18 +147,6 @@ final class CheckStyleExecutor {
     }
 
     /**
-     * Get a file object pointing to the given source folders location in the
-     * development components directory structure.
-     *
-     * @return the file object representing the source folder in the DCs
-     *         directory structure.
-     */
-    private File getSourceFolderLocation(final DevelopmentComponent component, final String sourceFolder) {
-        return new File(String.format(LOCATION_TEMPLATE, this.workspace, component.getVendor(), component.getName(),
-            sourceFolder).replace('/', File.separatorChar));
-    }
-
-    /**
      * Create a file object where the checkstyle result shall be written to.
      *
      * @param component
@@ -234,34 +155,7 @@ final class CheckStyleExecutor {
      * @return file object where checkstyle result shall be written to.
      */
     private File createResultFile(final DevelopmentComponent component) {
-        return new File(String.format(CHECKSTYLE_RESULT_LOCATION_TEMPLATE, this.workspace, component.getVendor(),
-            component.getName().replace('/', '~')).replace('/', File.separatorChar));
-    }
-
-    private static final String GEN_DEFAULT_LOCATION = "%s/.dtc/DCs/%s/%s/_comp/gen/default";
-
-    private Path createClassPath(Project project, DevelopmentComponent component) {
-        Path path = new Path(project);
-
-        for (PublicPartReference ppRef : component.getUsedDevelopmentComponents()) {
-            DevelopmentComponent referencedDC = dcFactory.get(ppRef.getVendor(), ppRef.getComponentName());
-
-            if (referencedDC != null) {
-                String genDefaultLocation =
-                    String.format(GEN_DEFAULT_LOCATION, this.workspace, referencedDC.getVendor(),
-                        referencedDC.getName());
-                FileSet fileSet = new FileSet();
-                fileSet.setDir(new File(genDefaultLocation));
-                fileSet.appendIncludes(new String[] { "**/*.jar", "**/*.par", "**/*.ear", "**/*.wda" });
-                path.addFileset(fileSet);
-            }
-            else {
-                this.listener.getLogger().append(
-                    String.format("Referenced DC %s:%s not found in DC factory!", ppRef.getVendor(),
-                        ppRef.getComponentName()));
-            }
-        }
-
-        return path;
+        return new File(String.format(CHECKSTYLE_RESULT_LOCATION_TEMPLATE, this.antHelper.getPathToWorkspace(),
+            component.getVendor(), component.getName().replace('/', '~')).replace('/', File.separatorChar));
     }
 }

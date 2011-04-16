@@ -22,7 +22,6 @@ import javax.servlet.ServletException;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
-import org.apache.commons.fileupload.FileItem;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
 import org.arachna.netweaver.hudson.nwdi.NWDIBuild;
 import org.arachna.netweaver.hudson.nwdi.NWDIProject;
@@ -119,9 +118,12 @@ public class CheckstyleBuilder extends Builder {
         final String pathToWorkspace = FilePathHelper.makeAbsolute(nwdiBuild.getWorkspace());
         final DescriptorImpl descriptor = getDescriptor();
 
-        return new CheckStyleExecutor(listener, pathToWorkspace, new File(pathToWorkspace + File.separatorChar
-            + CHECKSTYLE_CONFIG_XML), descriptor.getExcludes(), descriptor.getExcludeContainsRegexps(),
-            nwdiBuild.getDevelopmentComponentFactory());
+        AntHelper antHelper =
+            new AntHelper(pathToWorkspace, nwdiBuild.getDevelopmentComponentFactory(), nwdiBuild.getExcludesFactory(),
+                listener.getLogger());
+        File config = new File(pathToWorkspace + File.separatorChar + CHECKSTYLE_CONFIG_XML);
+
+        return new CheckStyleExecutor(listener.getLogger(), antHelper, config, descriptor);
     }
 
     /**
