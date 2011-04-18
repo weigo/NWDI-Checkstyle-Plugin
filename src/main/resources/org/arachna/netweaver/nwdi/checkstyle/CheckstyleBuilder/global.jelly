@@ -13,14 +13,14 @@
 			static resources. -->
 		<f:entry title="${%Checkstyle configuration}"
 			description="${%Insert your checkstyle configuration file.}" help="/plugin/NWDI-Checkstyle-Plugin/help-globalConfig.html">
-			<textarea class="setting-input  " name="configuration" rows="8">${it.configuration}</textarea>
+			<textarea class="setting-input  " name="configuration" rows="8">${descriptor.configuration}</textarea>
 		</f:entry>
 		<f:optionalBlock name="checkstyle.advancedConfiguration"
 			title="${%Advanced checkstyle configuration.}" checked="false">
 			<f:entry help="/plugin/NWDI-Checkstyle-Plugin/help-pattern.html"
 				title="${%Exclude by Ant file name pattern.}">
 				<f:repeatable name="excludes" var="exclude"
-					items="${it.excludes}" noAddButton="true" minimum="1">
+					items="${descriptor.excludes}" noAddButton="true" minimum="1">
 					<table width="100%">
 						<f:entry>
 							<f:textbox name="exclude" value="${exclude}" />
@@ -40,7 +40,7 @@
 			<f:entry title="${%Exclude by regular expression of file content.}"
 				help="/plugin/NWDI-Checkstyle-Plugin/help-pattern.html">
 				<f:repeatable name="excludeContainsRegexps" var="regexp"
-					items="${it.excludeContainsRegexps}" noAddButton="true"
+					items="${descriptor.excludeContainsRegexps}" noAddButton="true"
 					minimum="1">
 					<table width="100%">
 						<f:entry>
