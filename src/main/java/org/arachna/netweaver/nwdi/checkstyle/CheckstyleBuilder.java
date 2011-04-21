@@ -22,7 +22,9 @@ import javax.servlet.ServletException;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
+import org.arachna.ant.AntHelper;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
+import org.arachna.netweaver.hudson.nwdi.DCWithJavaSourceAcceptingFilter;
 import org.arachna.netweaver.hudson.nwdi.NWDIBuild;
 import org.arachna.netweaver.hudson.nwdi.NWDIProject;
 import org.arachna.netweaver.hudson.util.FilePathHelper;
@@ -78,7 +80,6 @@ public class CheckstyleBuilder extends Builder {
 
         try {
             final NWDIBuild nwdiBuild = (NWDIBuild)build;
-            final Collection<DevelopmentComponent> components = nwdiBuild.getAffectedDevelopmentComponents();
             nwdiBuild.getWorkspace().child(CHECKSTYLE_CONFIG_XML).write(getDescriptor().getConfiguration(), "UTF-8");
 
             final PluginWrapper pluginWrapper =
@@ -87,6 +88,9 @@ public class CheckstyleBuilder extends Builder {
             Thread.currentThread().setContextClassLoader(pluginFirstClassLoader);
 
             final CheckStyleExecutor executor = createExecutor(nwdiBuild, listener);
+
+            final Collection<DevelopmentComponent> components =
+                nwdiBuild.getAffectedDevelopmentComponents(new DCWithJavaSourceAcceptingFilter());
 
             for (final DevelopmentComponent component : components) {
                 executor.execute(component);
@@ -200,18 +204,21 @@ public class CheckstyleBuilder extends Builder {
         }
 
         /**
-         *
          * {@inheritDoc}
          */
         @Override
         public boolean configure(final StaplerRequest req, final JSONObject formData) throws FormException {
             this.configuration = formData.getString("configuration");
 
-            excludes.clear();
-            excludes.addAll(getExcludeItemDescriptions(formData, "excludes", "exclude"));
+            final JSONObject advancedConfig = (JSONObject)formData.get("advancedConfiguration");
 
-            excludeRegexps.clear();
-            excludeRegexps.addAll(getExcludeItemDescriptions(formData, "excludeContainsRegexps", "regexp"));
+            if (advancedConfig != null) {
+                excludes.clear();
+                excludes.addAll(getExcludeItemDescriptions(formData, "excludes", "exclude"));
+
+                excludeRegexps.clear();
+                excludeRegexps.addAll(getExcludeItemDescriptions(advancedConfig, "excludeContainsRegexps", "regexp"));
+            }
 
             save();
 
@@ -221,8 +228,8 @@ public class CheckstyleBuilder extends Builder {
         /**
          * Extract item descriptions for exclusion from analysis.
          *
-         * @param formData
-         *            JSON form containing configuration data.
+         * @param advancedConfig
+         *            JSON form containing advanced configuration data.
          * @param formName
          *            name of JSON form element to extract item descriptions
          *            from.
@@ -232,11 +239,9 @@ public class CheckstyleBuilder extends Builder {
          * @return collection of item descriptions to exclude from checkstyle
          *         analysis
          */
-        protected Collection<String> getExcludeItemDescriptions(final JSONObject formData, final String formName,
+        protected Collection<String> getExcludeItemDescriptions(final JSONObject advancedConfig, final String formName,
             final String itemName) {
             final Collection<String> descriptions = new HashSet<String>();
-
-            final JSONObject advancedConfig = (JSONObject)formData.get("advancedConfiguration");
 
             final JSONArray excludes = JSONArray.fromObject(advancedConfig.get(formName));
 
@@ -250,6 +255,7 @@ public class CheckstyleBuilder extends Builder {
             }
 
             return descriptions;
+
         }
 
         /**

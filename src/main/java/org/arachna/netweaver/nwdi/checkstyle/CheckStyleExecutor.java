@@ -9,6 +9,7 @@ import java.util.Collection;
 
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.FileSet;
+import org.arachna.ant.AntHelper;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
 import org.arachna.netweaver.nwdi.checkstyle.CheckstyleBuilder.DescriptorImpl;
 
@@ -82,14 +83,14 @@ final class CheckStyleExecutor {
 
             if (!resultFile.getParentFile().exists()) {
                 if (!resultFile.getParentFile().mkdirs()) {
-                    this.logger.append(resultFile.getParentFile().getAbsolutePath() + " could not be created!");
+                    this.logger.append(resultFile.getParentFile().getAbsolutePath() + " could not be created!\n");
                     return;
                 }
             }
 
             final CheckStyleTask task = createCheckStyleTask(component, resultFile);
 
-            this.logger.append(String.format("Running checkstyle analysis on %s/%s...", component.getVendor(),
+            this.logger.append(String.format("Running checkstyle analysis on %s:%s...", component.getVendor(),
                 component.getName()));
             long start = System.currentTimeMillis();
             task.execute();
@@ -120,6 +121,7 @@ final class CheckStyleExecutor {
         task.addFormatter(createFormatter(component, resultFile));
         task.setConfig(this.config);
         task.setFailOnViolation(false);
+
         return task;
     }
 
