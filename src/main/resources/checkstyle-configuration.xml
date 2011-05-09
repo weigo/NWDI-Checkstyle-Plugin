@@ -5,7 +5,7 @@
     This configuration file was written by the eclipse-cs plugin configuration editor
 -->
 <!--
-    Checkstyle-Configuration: GISA Checkstyle
+    Checkstyle-Configuration: GISA Coding standards
     Description: none
 -->
 <module name="Checker">
