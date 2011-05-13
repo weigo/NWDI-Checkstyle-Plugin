@@ -114,6 +114,7 @@ final class CheckStyleExecutor {
 
         for (FileSet sources : antHelper.createSourceFileSets(component, this.descriptor.getExcludes(),
             this.descriptor.getExcludeContainsRegexps())) {
+            sources.setProject(project);
             task.addFileset(sources);
         }
 
