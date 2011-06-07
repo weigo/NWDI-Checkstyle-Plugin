@@ -200,7 +200,7 @@ public class CheckstyleBuilder extends Builder {
          */
         @Override
         public String getDisplayName() {
-            return "NWDI Checkstyle";
+            return "NWDI Checkstyle Builder";
         }
 
         /**

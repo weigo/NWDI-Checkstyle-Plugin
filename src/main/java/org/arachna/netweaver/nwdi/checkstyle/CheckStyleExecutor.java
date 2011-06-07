@@ -10,6 +10,7 @@ import java.util.Collection;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.FileSet;
 import org.arachna.ant.AntHelper;
+import org.arachna.ant.ExcludeDataDictionarySourceDirectoryFilter;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
 import org.arachna.netweaver.nwdi.checkstyle.CheckstyleBuilder.DescriptorImpl;
 
@@ -24,7 +25,10 @@ final class CheckStyleExecutor {
     /**
      * template for path to source folder.
      */
-    private static final String CHECKSTYLE_RESULT_LOCATION_TEMPLATE = "%s/checkstyle/%s~%s/checkstyle-result.xml";
+    // private static final String CHECKSTYLE_RESULT_LOCATION_TEMPLATE =
+    // "%s/checkstyle/%s~%s/checkstyle-result.xml";
+    private static final String CHECKSTYLE_RESULT_LOCATION_TEMPLATE =
+        "%s/.dtc/DCs/%s/%s/_comp/gen/default/logs/checkstyle-result.xml";
 
     /**
      * Checkstyle configuration file.
@@ -76,25 +80,24 @@ final class CheckStyleExecutor {
      *            the development component to execute a checkstyle check on.
      */
     void execute(final DevelopmentComponent component) {
-        Collection<File> existingSourceFolders = this.antHelper.getExistingSourceFolders(component);
+        File resultFile = createResultFile(component);
 
-        if (!existingSourceFolders.isEmpty()) {
-            File resultFile = createResultFile(component);
+        if (!resultFile.getParentFile().exists() && !resultFile.getParentFile().mkdirs()) {
+            this.logger.append(resultFile.getParentFile().getAbsolutePath() + " could not be created!\n");
+            return;
+        }
 
-            if (!resultFile.getParentFile().exists()) {
-                if (!resultFile.getParentFile().mkdirs()) {
-                    this.logger.append(resultFile.getParentFile().getAbsolutePath() + " could not be created!\n");
-                    return;
-                }
-            }
-
+        try {
             final CheckStyleTask task = createCheckStyleTask(component, resultFile);
 
             this.logger.append(String.format("Running checkstyle analysis on %s:%s...", component.getVendor(),
                 component.getName()));
             long start = System.currentTimeMillis();
             task.execute();
-            this.logger.append(String.format(" (%f sec.)\n", (System.currentTimeMillis() - start) / 1000f));
+            this.logger.append(String.format(" (%f sec.).\n", (System.currentTimeMillis() - start) / 1000f));
+        }
+        catch (IllegalStateException ise) {
+            // ignore, skip execution for DCs without sources.
         }
     }
 
@@ -108,16 +111,22 @@ final class CheckStyleExecutor {
      */
     private CheckStyleTask createCheckStyleTask(final DevelopmentComponent component, File resultFile) {
         final CheckStyleTask task = new CheckStyleTask();
-
         final Project project = new Project();
-        task.setProject(project);
 
-        for (FileSet sources : antHelper.createSourceFileSets(component, this.descriptor.getExcludes(),
-            this.descriptor.getExcludeContainsRegexps())) {
-            sources.setProject(project);
-            task.addFileset(sources);
+        Collection<FileSet> sources =
+            antHelper.createSourceFileSets(component, new ExcludeDataDictionarySourceDirectoryFilter(),
+                this.descriptor.getExcludes(), this.descriptor.getExcludeContainsRegexps());
+
+        if (sources.isEmpty()) {
+            throw new IllegalStateException("No need to analyze a DC with no sources files.");
         }
 
+        for (FileSet source : sources) {
+            source.setProject(project);
+            task.addFileset(source);
+        }
+
+        task.setProject(project);
         task.setClasspath(this.antHelper.createClassPath(project, component));
         task.addFormatter(createFormatter(component, resultFile));
         task.setConfig(this.config);
@@ -159,6 +168,6 @@ final class CheckStyleExecutor {
      */
     private File createResultFile(final DevelopmentComponent component) {
         return new File(String.format(CHECKSTYLE_RESULT_LOCATION_TEMPLATE, this.antHelper.getPathToWorkspace(),
-            component.getVendor(), component.getName().replace('/', '~')).replace('/', File.separatorChar));
+            component.getVendor(), component.getName().replace('/', File.separatorChar)));
     }
 }
