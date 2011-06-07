@@ -24,6 +24,8 @@
       <groupId>org.arachna.netweaver</groupId>
       <artifactId>NWDI-Core-Plugin</artifactId>
       <version>1.0-SNAPSHOT</version>
+      <type>jar</type>
+      <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>com.google.collections</groupId>
