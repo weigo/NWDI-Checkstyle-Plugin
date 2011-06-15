@@ -111,7 +111,6 @@ final class CheckStyleExecutor {
      */
     private CheckStyleTask createCheckStyleTask(final DevelopmentComponent component, File resultFile) {
         final CheckStyleTask task = new CheckStyleTask();
-        final Project project = new Project();
 
         Collection<FileSet> sources =
             antHelper.createSourceFileSets(component, new ExcludeDataDictionarySourceDirectoryFilter(),
@@ -122,12 +121,11 @@ final class CheckStyleExecutor {
         }
 
         for (FileSet source : sources) {
-            source.setProject(project);
             task.addFileset(source);
         }
 
-        task.setProject(project);
-        task.setClasspath(this.antHelper.createClassPath(project, component));
+        task.setProject(this.antHelper.getProject());
+        task.setClasspath(this.antHelper.createClassPath(component));
         task.addFormatter(createFormatter(component, resultFile));
         task.setConfig(this.config);
         task.setFailOnViolation(false);

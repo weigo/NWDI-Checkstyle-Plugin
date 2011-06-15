@@ -22,8 +22,8 @@ import javax.servlet.ServletException;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
-import org.arachna.ant.AntHelper;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
+import org.arachna.netweaver.hudson.nwdi.AntTaskBuilder;
 import org.arachna.netweaver.hudson.nwdi.DCWithJavaSourceAcceptingFilter;
 import org.arachna.netweaver.hudson.nwdi.NWDIBuild;
 import org.arachna.netweaver.hudson.nwdi.NWDIProject;
@@ -49,7 +49,7 @@ import org.kohsuke.stapler.StaplerRequest;
  *
  * @author Kohsuke Kawaguchi
  */
-public class CheckstyleBuilder extends Builder {
+public class CheckstyleBuilder extends AntTaskBuilder {
     /**
      * Descriptor for {@link CheckstyleBuilder}.
      */
@@ -122,12 +122,9 @@ public class CheckstyleBuilder extends Builder {
         final String pathToWorkspace = FilePathHelper.makeAbsolute(nwdiBuild.getWorkspace());
         final DescriptorImpl descriptor = getDescriptor();
 
-        AntHelper antHelper =
-            new AntHelper(pathToWorkspace, nwdiBuild.getDevelopmentComponentFactory(), nwdiBuild.getExcludesFactory(),
-                listener.getLogger());
         File config = new File(pathToWorkspace + File.separatorChar + CHECKSTYLE_CONFIG_XML);
 
-        return new CheckStyleExecutor(listener.getLogger(), antHelper, config, descriptor);
+        return new CheckStyleExecutor(listener.getLogger(), getAntHelper(), config, descriptor);
     }
 
     /**
