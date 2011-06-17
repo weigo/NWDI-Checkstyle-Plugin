@@ -125,7 +125,7 @@ final class CheckStyleExecutor {
         }
 
         task.setProject(this.antHelper.getProject());
-        task.setClasspath(this.antHelper.createClassPath(component));
+//        task.setClasspath(this.antHelper.createClassPath(component));
         task.addFormatter(createFormatter(component, resultFile));
         task.setConfig(this.config);
         task.setFailOnViolation(false);
