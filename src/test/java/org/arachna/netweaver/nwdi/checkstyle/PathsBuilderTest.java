@@ -3,21 +3,13 @@
  */
 package org.arachna.netweaver.nwdi.checkstyle;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
-
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.Collection;
 import java.util.LinkedList;
 
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.TransformerConfigurationException;
-import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.TransformerFactoryConfigurationError;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
@@ -42,9 +34,9 @@ import org.xml.sax.SAXException;
  */
 public class PathsBuilderTest extends XMLTestCase {
     /**
-     * instance under test.
+     * XML for the paths.
      */
-    private PathsBuilder pathsBuilder;
+    private String paths;
 
     /**
      * @throws java.lang.Exception
@@ -71,8 +63,20 @@ public class PathsBuilderTest extends XMLTestCase {
                 new PublicPartReference[] { api, assembly });
         components.add(dc2);
 
+        final PublicPartReference defLib = new PublicPartReference("vendor.com", "dc1", "defLib");
+        defLib.setAtRunTime(true);
+
+        final DevelopmentComponent dc3 =
+            dcFactory.create("vendor.com", "dc3", new PublicPart[] {}, new PublicPartReference[] { defLib });
+        components.add(dc3);
+
         final AntHelper antHelper = new AntHelper("/tmp", dcFactory, new ExcludesFactory());
-        pathsBuilder = new PathsBuilder(domHelper, antHelper, components);
+        final PathsBuilder pathsBuilder = new PathsBuilder(domHelper, antHelper, components);
+        final Element paths = pathsBuilder.build();
+        final StringWriter result = new StringWriter();
+        TransformerFactory.newInstance().newTransformer().transform(new DOMSource(paths), new StreamResult(result));
+        this.paths = result.toString();
+        System.err.println(this.paths);
     }
 
     /**
@@ -81,30 +85,60 @@ public class PathsBuilderTest extends XMLTestCase {
     @Override
     @After
     public void tearDown() throws Exception {
-        pathsBuilder = null;
+        paths = null;
     }
 
     /**
      * Test method for
      * {@link org.arachna.netweaver.nwdi.checkstyle.PathsBuilder#build()}.
      * 
-     * @throws TransformerFactoryConfigurationError
-     * @throws TransformerException
-     * @throws TransformerConfigurationException
      * @throws IOException
      * @throws SAXException
      * @throws XpathException
      */
     @Test
-    public final void testBuild() throws XpathException, SAXException, IOException, TransformerConfigurationException,
-        TransformerException, TransformerFactoryConfigurationError {
-        final Element paths = pathsBuilder.build();
-        assertThat(paths, is(not(equalTo(null))));
-        final StringWriter result = new StringWriter();
-        TransformerFactory.newInstance().newTransformer().transform(new DOMSource(paths), new StreamResult(result));
-        System.err.println(result.toString());
-        this.assertXpathEvaluatesTo("vendor.com~dc1~assembly", "/paths/path[1]/@id", result.toString());
+    public final void testGeneratePathId() throws XpathException, SAXException, IOException {
+        this.assertXpathEvaluatesTo("vendor.com~dc1~assembly", "/paths/path[1]/@id", paths);
+        this.assertXpathEvaluatesTo("vendor.com~dc1~api", "/paths/path[2]/@id", paths);
+    }
+
+    /**
+     * Test method for
+     * {@link org.arachna.netweaver.nwdi.checkstyle.PathsBuilder#build()}.
+     * 
+     * @throws IOException
+     * @throws SAXException
+     * @throws XpathException
+     */
+    @Test
+    public final void testGeneratedPathsCount() throws XpathException, SAXException, IOException {
+        this.assertXpathEvaluatesTo("2", "count(/paths/path)", paths);
+    }
+
+    /**
+     * Test method for
+     * {@link org.arachna.netweaver.nwdi.checkstyle.PathsBuilder#build()}.
+     * 
+     * @throws IOException
+     * @throws SAXException
+     * @throws XpathException
+     */
+    @Test
+    public final void testGenerateLocation() throws XpathException, SAXException, IOException {
         this.assertXpathEvaluatesTo("/tmp/.dtc/DCs/vendor.com/dc1/_comp/gen/default/public/assembly/lib/java",
-            "/paths/path[1]/@location", result.toString());
+            "/paths/path[1]/@location", paths);
+    }
+
+    /**
+     * Test method for
+     * {@link org.arachna.netweaver.nwdi.checkstyle.PathsBuilder#build()}.
+     * 
+     * @throws IOException
+     * @throws SAXException
+     * @throws XpathException
+     */
+    @Test
+    public final void testDoNotGeneratePathForRuntimeReferences() throws XpathException, SAXException, IOException {
+        this.assertXpathEvaluatesTo("0", "count(/paths/path[@id = 'vendor.com~dc3~defLib'])", paths);
     }
 }
