@@ -22,10 +22,11 @@ import org.arachna.ant.AntHelper;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
 import org.arachna.xml.DomHelper;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 /**
  * Generator for an Ant build file.
- *
+ * 
  * @author Dirk Weigenand
  */
 public final class BuildFileGenerator {
@@ -34,49 +35,55 @@ public final class BuildFileGenerator {
      */
     private Collection<DevelopmentComponent> components = new LinkedList<DevelopmentComponent>();
 
-    private DomHelper domHelper = new DomHelper(null);
+    private DomHelper domHelper;
 
     private final AntHelper antHelper;
 
-    public BuildFileGenerator(AntHelper antHelper, Collection<DevelopmentComponent> components) {
+    public BuildFileGenerator(final AntHelper antHelper, final Collection<DevelopmentComponent> components) {
         this.antHelper = antHelper;
         this.components = components;
     }
 
-    public void write(Writer target) {
+    public void write(final Writer target) {
         try {
-            this.transform(this.createBuildTemplate(), target);
+            transform(createBuildTemplate(), target);
         }
-        catch (TransformerException e) {
+        catch (final TransformerException e) {
             throw new RuntimeException(e);
         }
-        catch (ParserConfigurationException e) {
+        catch (final ParserConfigurationException e) {
             throw new RuntimeException(e);
         }
     }
 
     protected Document createBuildTemplate() throws ParserConfigurationException {
-        this.domHelper = createDomHelper();
-        this.domHelper.getDocument().appendChild(new PathsBuilder(domHelper, antHelper, components).build());
+        domHelper = createDomHelper();
+        final Document document = domHelper.getDocument();
+        final Element project = domHelper.createElement("project");
+        project.appendChild(new PathsBuilder(domHelper, antHelper, components).build());
+        project.appendChild(new CheckStyleTaskBuilder(domHelper, new IdGenerator(), components).build());
+        document.appendChild(project);
 
-        return this.domHelper.getDocument();
+        return document;
     }
 
     /**
      * Create and configure the transformer object to use generating the report.
      * Throws a <code>RuntimeException</code> when there is an error creating
      * the transformer.
-     *
+     * 
      * @return the transformer to use for generating the report.
      */
     private Transformer getTransformer() {
-        final StreamSource source = new StreamSource(this.getClass().getResourceAsStream(""));
+        final StreamSource source =
+            new StreamSource(this.getClass().getResourceAsStream(
+                "/org/arachna/netweaver/nwdi/checkstyle/CheckstyleBuilder/checkstyle-project.xsl"));
         final TransformerFactory factory = TransformerFactory.newInstance();
         Transformer transformer = null;
 
         try {
             transformer = factory.newTransformer(source);
-            transformer.setOutputProperty("method", "html");
+            transformer.setOutputProperty("method", "xml");
             transformer.setOutputProperty("indent", "yes");
             transformer.setOutputProperty("encoding", "UTF-8");
         }
@@ -97,8 +104,8 @@ public final class BuildFileGenerator {
         return new DomHelper(builder.newDocument());
     }
 
-    protected void transform(Document document, Writer writer) throws TransformerException {
-        this.getTransformer().transform(new DOMSource(document), new StreamResult(writer));
+    protected void transform(final Document document, final Writer writer) throws TransformerException {
+        getTransformer().transform(new DOMSource(document), new StreamResult(writer));
     }
 
 }
