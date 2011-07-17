@@ -9,7 +9,24 @@
     <xsl:element name="project">
       <xsl:attribute name="name">p</xsl:attribute>
       <xsl:attribute name="default">all</xsl:attribute>
+
+      <xsl:call-template name="defaultTarget">
+      </xsl:call-template>
       <xsl:apply-templates />
+    </xsl:element>
+  </xsl:template>
+
+  <xsl:template name="defaultTarget">
+    <xsl:variable name="depends">
+      <xsl:for-each select="project/targets/checkstyle">
+        <xsl:value-of select="concat(@name, ',')" />
+      </xsl:for-each>
+    </xsl:variable>
+    <xsl:element name="target">
+      <xsl:attribute name="name">all</xsl:attribute>
+      <xsl:attribute name="depends">
+        <xsl:value-of select="substring($depends, 0, string-length($depends))" />
+      </xsl:attribute>
     </xsl:element>
   </xsl:template>
 

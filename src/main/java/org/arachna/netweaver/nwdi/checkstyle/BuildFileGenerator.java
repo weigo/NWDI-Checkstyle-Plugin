@@ -3,6 +3,7 @@
  */
 package org.arachna.netweaver.nwdi.checkstyle;
 
+import java.io.IOException;
 import java.io.Writer;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -47,6 +48,7 @@ public final class BuildFileGenerator {
     public void write(final Writer target) {
         try {
             transform(createBuildTemplate(), target);
+            target.close();
         }
         catch (final TransformerException e) {
             throw new RuntimeException(e);
@@ -54,14 +56,26 @@ public final class BuildFileGenerator {
         catch (final ParserConfigurationException e) {
             throw new RuntimeException(e);
         }
+        catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
+    /**
+     * Create a template to be transformed into an ant build file.
+     * 
+     * @return a {@link Document} representing the DOM used to generate the ant
+     *         build file.
+     * @throws ParserConfigurationException
+     *             when the XML parser configuration is faulty.
+     */
     protected Document createBuildTemplate() throws ParserConfigurationException {
         domHelper = createDomHelper();
         final Document document = domHelper.getDocument();
         final Element project = domHelper.createElement("project");
-        project.appendChild(new PathsBuilder(domHelper, antHelper, components).build());
-        project.appendChild(new CheckStyleTaskBuilder(domHelper, new IdGenerator(), components).build());
+        final IdGenerator idGenerator = new IdGenerator();
+        project.appendChild(new PathsBuilder(domHelper, antHelper, idGenerator, components).build());
+        project.appendChild(new CheckStyleTaskBuilder(domHelper, idGenerator, components).build());
         document.appendChild(project);
 
         return document;
@@ -105,7 +119,10 @@ public final class BuildFileGenerator {
     }
 
     protected void transform(final Document document, final Writer writer) throws TransformerException {
-        getTransformer().transform(new DOMSource(document), new StreamResult(writer));
+        final Transformer transformer = getTransformer();
+        // FIXME: set parameters for transformation (reportBase,
+        // checkStyleConfig, ...)
+        transformer.transform(new DOMSource(document), new StreamResult(writer));
     }
 
 }

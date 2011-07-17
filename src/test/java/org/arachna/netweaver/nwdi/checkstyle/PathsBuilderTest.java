@@ -71,12 +71,11 @@ public class PathsBuilderTest extends XMLTestCase {
         components.add(dc3);
 
         final AntHelper antHelper = new AntHelper("/tmp", dcFactory, new ExcludesFactory());
-        final PathsBuilder pathsBuilder = new PathsBuilder(domHelper, antHelper, components);
+        final PathsBuilder pathsBuilder = new PathsBuilder(domHelper, antHelper, new IdGenerator(), components);
         final Element paths = pathsBuilder.build();
         final StringWriter result = new StringWriter();
         TransformerFactory.newInstance().newTransformer().transform(new DOMSource(paths), new StreamResult(result));
         this.paths = result.toString();
-        System.err.println(this.paths);
     }
 
     /**
