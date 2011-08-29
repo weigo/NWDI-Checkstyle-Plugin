@@ -3,126 +3,135 @@
  */
 package org.arachna.netweaver.nwdi.checkstyle;
 
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.io.Writer;
 import java.util.Collection;
-import java.util.LinkedList;
+import java.util.HashSet;
+import java.util.Set;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerConfigurationException;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-import javax.xml.transform.stream.StreamSource;
-
+import org.apache.velocity.VelocityContext;
+import org.apache.velocity.app.VelocityEngine;
+import org.apache.velocity.context.Context;
 import org.arachna.ant.AntHelper;
+import org.arachna.ant.ExcludeDataDictionarySourceDirectoryFilter;
+import org.arachna.ant.ExcludesFactory;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
-import org.arachna.xml.DomHelper;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 
 /**
- * Generator for an Ant build file.
+ * Execute a checkstyle check on a given development component.
  * 
  * @author Dirk Weigenand
  */
-public final class BuildFileGenerator {
+final class BuildFileGenerator {
     /**
-     * List of DCs that should be scrutinized with CheckStyle.
+     * Checkstyle configuration file.
      */
-    private Collection<DevelopmentComponent> components = new LinkedList<DevelopmentComponent>();
+    private final String pathToGlobalCheckstyleConfig;
 
-    private DomHelper domHelper;
+    /**
+     * Logger.
+     */
+    private final PrintStream logger;
 
-    private final AntHelper antHelper;
+    /**
+     * helper for populating properties of the checkstyle ant task
+     */
+    private AntHelper antHelper;
 
-    public BuildFileGenerator(final AntHelper antHelper, final Collection<DevelopmentComponent> components) {
+    /**
+     * Factory for exclude patterns depending on DC type.
+     */
+    private ExcludesFactory excludesFactory = new ExcludesFactory();
+
+    /**
+     * Excludes configured in project.
+     */
+    private Set<String> excludes = new HashSet<String>();
+
+    /**
+     * Template to use for generating build files.
+     */
+    private VelocityEngine engine;
+
+    /**
+     * Paths to generated build files.
+     */
+    private Collection<String> buildFilePaths = new HashSet<String>();
+
+    /**
+     * @return the buildFilePaths
+     */
+    public final Collection<String> getBuildFilePaths() {
+        return buildFilePaths;
+    }
+
+    /**
+     * Create an instance of an {@link BuildFileGenerator} with the given
+     * workspace location and checkstyle configuration file.
+     * 
+     * @param listener
+     *            build listener for logging
+     * @param antHelper
+     *            helper class for populating the checkstyle ant task's file
+     *            sets, class path etc.
+     * @param pathToGlobalCheckstyleConfig
+     *            the path to the global checkstyle configuration file
+     * @param descriptor
+     *            the descriptor of checkstyle builder
+     * 
+     */
+    BuildFileGenerator(final VelocityEngine engine, final PrintStream logger, final AntHelper antHelper,
+        final String pathToGlobalCheckstyleConfig, final Collection<String> excludes) {
+        this.engine = engine;
+        this.logger = logger;
         this.antHelper = antHelper;
-        this.components = components;
-    }
-
-    public void write(final Writer target) {
-        try {
-            transform(createBuildTemplate(), target);
-            target.close();
-        }
-        catch (final TransformerException e) {
-            throw new RuntimeException(e);
-        }
-        catch (final ParserConfigurationException e) {
-            throw new RuntimeException(e);
-        }
-        catch (final IOException e) {
-            throw new RuntimeException(e);
-        }
+        this.pathToGlobalCheckstyleConfig = pathToGlobalCheckstyleConfig;
+        this.excludes.addAll(excludes);
     }
 
     /**
-     * Create a template to be transformed into an ant build file.
+     * Executes the checkstyle check for the given development component.
      * 
-     * @return a {@link Document} representing the DOM used to generate the ant
-     *         build file.
-     * @throws ParserConfigurationException
-     *             when the XML parser configuration is faulty.
+     * @param component
+     *            the development component to execute a checkstyle check on.
      */
-    protected Document createBuildTemplate() throws ParserConfigurationException {
-        domHelper = createDomHelper();
-        final Document document = domHelper.getDocument();
-        final Element project = domHelper.createElement("project");
-        final IdGenerator idGenerator = new IdGenerator();
-        project.appendChild(new PathsBuilder(domHelper, antHelper, idGenerator, components).build());
-        project.appendChild(new CheckStyleTaskBuilder(domHelper, idGenerator, components).build());
-        document.appendChild(project);
-
-        return document;
-    }
-
-    /**
-     * Create and configure the transformer object to use generating the report.
-     * Throws a <code>RuntimeException</code> when there is an error creating
-     * the transformer.
-     * 
-     * @return the transformer to use for generating the report.
-     */
-    private Transformer getTransformer() {
-        final StreamSource source =
-            new StreamSource(this.getClass().getResourceAsStream(
-                "/org/arachna/netweaver/nwdi/checkstyle/CheckstyleBuilder/checkstyle-project.xsl"));
-        final TransformerFactory factory = TransformerFactory.newInstance();
-        Transformer transformer = null;
+    void execute(final DevelopmentComponent component) {
+        Writer buildFile = null;
 
         try {
-            transformer = factory.newTransformer(source);
-            transformer.setOutputProperty("method", "xml");
-            transformer.setOutputProperty("indent", "yes");
-            transformer.setOutputProperty("encoding", "UTF-8");
+            Context context = new VelocityContext();
+            context.put("sourcePaths",
+                antHelper.createSourceFileSets(component, new ExcludeDataDictionarySourceDirectoryFilter()));
+            context.put("checkstyleconfig", pathToGlobalCheckstyleConfig);
+            context.put("excludes", this.excludesFactory.create(component, this.excludes));
+            context.put("classpaths", antHelper.createClassPath(component));
+            context.put("vendor", component.getVendor());
+            context.put("component", component.getName().replaceAll("/", "~"));
+            // FIXME: add containsexcludes
+
+            String baseLocation = antHelper.getBaseLocation(component);
+            context.put("componentBase", baseLocation);
+            String location = String.format("%s/checkstyle-build.xml", baseLocation);
+            buildFile = new FileWriter(location);
+            engine.evaluate(context, buildFile, "checkstyle-build", new InputStreamReader(this.getClass()
+                .getResourceAsStream("/org/arachna/netweaver/nwdi/checkstyle/checkstyle-build.vm")));
+            this.buildFilePaths.add(location);
         }
-        catch (final TransformerConfigurationException e) {
-            throw new RuntimeException(e);
+        catch (Exception e) {
+            e.printStackTrace(logger);
         }
-
-        return transformer;
+        finally {
+            if (buildFile != null) {
+                try {
+                    buildFile.close();
+                }
+                catch (IOException e) {
+                    e.printStackTrace(logger);
+                }
+            }
+        }
     }
-
-    /**
-     * @return
-     * @throws ParserConfigurationException
-     */
-    protected DomHelper createDomHelper() throws ParserConfigurationException {
-        final DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        final DocumentBuilder builder = factory.newDocumentBuilder();
-        return new DomHelper(builder.newDocument());
-    }
-
-    protected void transform(final Document document, final Writer writer) throws TransformerException {
-        final Transformer transformer = getTransformer();
-        // FIXME: set parameters for transformation (reportBase,
-        // checkStyleConfig, ...)
-        transformer.transform(new DOMSource(document), new StreamResult(writer));
-    }
-
 }
