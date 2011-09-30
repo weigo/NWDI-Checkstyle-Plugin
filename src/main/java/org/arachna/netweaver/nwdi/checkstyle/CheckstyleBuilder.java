@@ -35,6 +35,7 @@ import org.arachna.netweaver.hudson.nwdi.DCWithJavaSourceAcceptingFilter;
 import org.arachna.netweaver.hudson.nwdi.NWDIBuild;
 import org.arachna.netweaver.hudson.nwdi.NWDIProject;
 import org.arachna.netweaver.hudson.util.FilePathHelper;
+import org.arachna.velocity.VelocityLogChute;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -162,7 +163,7 @@ public class CheckstyleBuilder extends AntTaskBuilder {
             StringWriter buildFile = new StringWriter();
             Context context = new VelocityContext();
             context.put("buildFiles", buildFiles);
-            engine.evaluate(context, buildFile, CHECKSTYLE_BUILD_ALL_TARGET, getTemplateReader());
+            engine.evaluate(context, buildFile, CHECKSTYLE_BUILD_ALL_TARGET, getTemplateReader(CHECKSTYLE_BUILD_ALL_VM));
             workspace.child(CHECKSTYLE_BUILD_ALL_XML).write(buildFile.toString(), "UTF-8");
         }
         catch (Exception e) {
@@ -175,18 +176,9 @@ public class CheckstyleBuilder extends AntTaskBuilder {
      * 
      * @return the properties to use calling ant.
      */
-    private String getAntProperties() {
+    protected String getAntProperties() {
         return String.format("checkstyle.dir=%s/plugins/NWDI-Checkstyle-Plugin/WEB-INF/lib", Hudson.getInstance().root
             .getAbsolutePath().replace("\\", "/"));
-    }
-
-    /**
-     * Get the {@link Reader} for the velocity template.
-     * 
-     * @return the reader for the velocity template.
-     */
-    private Reader getTemplateReader() {
-        return new InputStreamReader(this.getClass().getResourceAsStream(CHECKSTYLE_BUILD_ALL_VM));
     }
 
     /**
@@ -203,32 +195,6 @@ public class CheckstyleBuilder extends AntTaskBuilder {
 
         return new BuildFileGenerator(engine, logger, getAntHelper(), FilePathHelper.makeAbsolute(checkstyleConfig),
             descriptor.getExcludes());
-    }
-
-    /**
-     * Create a new VelocityEngine using the given Logger.
-     * 
-     * @param logger
-     *            logger to use for VelocityEngine.
-     * @return the new VelocityEngine.
-     */
-    private VelocityEngine getVelocityEngine(final PrintStream logger) {
-        VelocityEngine engine = null;
-
-        try {
-            Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
-            engine = new VelocityEngine();
-            Properties properties = new Properties();
-            properties.load(this.getClass().getResourceAsStream(
-                "/org/arachna/netweaver/nwdi/checkstyle/velocity.properties"));
-            engine.setProperty(VelocityEngine.RUNTIME_LOG_LOGSYSTEM, new VelocityLogChute(logger));
-            engine.init(properties);
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return engine;
     }
 
     /**

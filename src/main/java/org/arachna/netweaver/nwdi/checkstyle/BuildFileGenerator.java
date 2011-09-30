@@ -102,23 +102,27 @@ final class BuildFileGenerator {
         Writer buildFile = null;
 
         try {
-            Context context = new VelocityContext();
-            context.put("sourcePaths",
-                antHelper.createSourceFileSets(component, new ExcludeDataDictionarySourceDirectoryFilter()));
-            context.put("checkstyleconfig", pathToGlobalCheckstyleConfig);
-            context.put("excludes", this.excludesFactory.create(component, this.excludes));
-            context.put("classpaths", antHelper.createClassPath(component));
-            context.put("vendor", component.getVendor());
-            context.put("component", component.getName().replaceAll("/", "~"));
-            // FIXME: add containsexcludes
+            Collection<String> sources =
+                antHelper.createSourceFileSets(component, new ExcludeDataDictionarySourceDirectoryFilter());
 
-            String baseLocation = antHelper.getBaseLocation(component);
-            context.put("componentBase", baseLocation);
-            String location = String.format("%s/checkstyle-build.xml", baseLocation);
-            buildFile = new FileWriter(location);
-            engine.evaluate(context, buildFile, "checkstyle-build", new InputStreamReader(this.getClass()
-                .getResourceAsStream("/org/arachna/netweaver/nwdi/checkstyle/checkstyle-build.vm")));
-            this.buildFilePaths.add(location);
+            if (!sources.isEmpty()) {
+                Context context = new VelocityContext();
+                context.put("sourcePaths", sources);
+                context.put("checkstyleconfig", pathToGlobalCheckstyleConfig);
+                context.put("excludes", this.excludesFactory.create(component, this.excludes));
+                context.put("classpaths", antHelper.createClassPath(component));
+                context.put("vendor", component.getVendor());
+                context.put("component", component.getName().replaceAll("/", "~"));
+                // FIXME: add containsexcludes
+
+                String baseLocation = antHelper.getBaseLocation(component);
+                context.put("componentBase", baseLocation);
+                String location = String.format("%s/checkstyle-build.xml", baseLocation);
+                buildFile = new FileWriter(location);
+                engine.evaluate(context, buildFile, "checkstyle-build", new InputStreamReader(this.getClass()
+                    .getResourceAsStream("/org/arachna/netweaver/nwdi/checkstyle/checkstyle-build.vm")));
+                this.buildFilePaths.add(location);
+            }
         }
         catch (Exception e) {
             e.printStackTrace(logger);
