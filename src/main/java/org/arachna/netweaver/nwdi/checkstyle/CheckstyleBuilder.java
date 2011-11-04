@@ -163,7 +163,8 @@ public class CheckstyleBuilder extends AntTaskBuilder {
             StringWriter buildFile = new StringWriter();
             Context context = new VelocityContext();
             context.put("buildFiles", buildFiles);
-            engine.evaluate(context, buildFile, CHECKSTYLE_BUILD_ALL_TARGET, getTemplateReader(CHECKSTYLE_BUILD_ALL_VM));
+            engine
+                .evaluate(context, buildFile, CHECKSTYLE_BUILD_ALL_TARGET, getTemplateReader(CHECKSTYLE_BUILD_ALL_VM));
             workspace.child(CHECKSTYLE_BUILD_ALL_XML).write(buildFile.toString(), "UTF-8");
         }
         catch (Exception e) {
@@ -194,7 +195,7 @@ public class CheckstyleBuilder extends AntTaskBuilder {
         final DescriptorImpl descriptor = getDescriptor();
 
         return new BuildFileGenerator(engine, logger, getAntHelper(), FilePathHelper.makeAbsolute(checkstyleConfig),
-            descriptor.getExcludes());
+            descriptor.getExcludes(), descriptor.getExcludeContainsRegexps());
     }
 
     /**
@@ -313,10 +314,13 @@ public class CheckstyleBuilder extends AntTaskBuilder {
 
             for (int i = 0; i < excludes.size(); i++) {
                 final JSONObject param = excludes.getJSONObject(i);
-                final String exclude = param.getString(itemName);
 
-                if (exclude.length() > 0) {
-                    descriptions.add(exclude);
+                if (!param.isNullObject()) {
+                    final String exclude = param.getString(itemName);
+
+                    if (exclude.length() > 0) {
+                        descriptions.add(exclude);
+                    }
                 }
             }
 

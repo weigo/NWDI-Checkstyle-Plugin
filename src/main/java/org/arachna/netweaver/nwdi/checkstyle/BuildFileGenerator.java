@@ -39,27 +39,32 @@ final class BuildFileGenerator {
     /**
      * helper for populating properties of the checkstyle ant task
      */
-    private AntHelper antHelper;
+    private final AntHelper antHelper;
 
     /**
      * Factory for exclude patterns depending on DC type.
      */
-    private ExcludesFactory excludesFactory = new ExcludesFactory();
+    private final ExcludesFactory excludesFactory = new ExcludesFactory();
 
     /**
      * Excludes configured in project.
      */
-    private Set<String> excludes = new HashSet<String>();
+    private final Set<String> excludes = new HashSet<String>();
+
+    /**
+     * Excludes by regexp over content configured in project.
+     */
+    private final Set<String> excludeContainsRegexps = new HashSet<String>();
 
     /**
      * Template to use for generating build files.
      */
-    private VelocityEngine engine;
+    private final VelocityEngine engine;
 
     /**
      * Paths to generated build files.
      */
-    private Collection<String> buildFilePaths = new HashSet<String>();
+    private final Collection<String> buildFilePaths = new HashSet<String>();
 
     /**
      * @return the buildFilePaths
@@ -84,12 +89,14 @@ final class BuildFileGenerator {
      * 
      */
     BuildFileGenerator(final VelocityEngine engine, final PrintStream logger, final AntHelper antHelper,
-        final String pathToGlobalCheckstyleConfig, final Collection<String> excludes) {
+        final String pathToGlobalCheckstyleConfig, final Collection<String> excludes,
+        final Collection<String> excludeContainsRegexps) {
         this.engine = engine;
         this.logger = logger;
         this.antHelper = antHelper;
         this.pathToGlobalCheckstyleConfig = pathToGlobalCheckstyleConfig;
         this.excludes.addAll(excludes);
+        this.excludeContainsRegexps.addAll(excludeContainsRegexps);
     }
 
     /**
@@ -110,10 +117,10 @@ final class BuildFileGenerator {
                 context.put("sourcePaths", sources);
                 context.put("checkstyleconfig", pathToGlobalCheckstyleConfig);
                 context.put("excludes", this.excludesFactory.create(component, this.excludes));
+                context.put("excludeContainsRegexps", excludeContainsRegexps);
                 context.put("classpaths", antHelper.createClassPath(component));
                 context.put("vendor", component.getVendor());
                 context.put("component", component.getName().replaceAll("/", "~"));
-                // FIXME: add containsexcludes
 
                 String baseLocation = antHelper.getBaseLocation(component);
                 context.put("componentBase", baseLocation);
