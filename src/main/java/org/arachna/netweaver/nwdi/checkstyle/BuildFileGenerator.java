@@ -26,6 +26,8 @@ import org.arachna.netweaver.dc.types.DevelopmentComponent;
  * @author Dirk Weigenand
  */
 final class BuildFileGenerator {
+    protected static final String BUILD_XML_PATH_TEMPLATE = "%s/checkstyle-build.xml";
+
     /**
      * Checkstyle configuration file.
      */
@@ -109,29 +111,29 @@ final class BuildFileGenerator {
         Writer buildFile = null;
 
         try {
-            Collection<String> sources =
+            final Collection<String> sources =
                 antHelper.createSourceFileSets(component, new ExcludeDataDictionarySourceDirectoryFilter());
 
             if (!sources.isEmpty()) {
-                Context context = new VelocityContext();
+                final Context context = new VelocityContext();
                 context.put("sourcePaths", sources);
                 context.put("checkstyleconfig", pathToGlobalCheckstyleConfig);
-                context.put("excludes", this.excludesFactory.create(component, this.excludes));
+                context.put("excludes", excludesFactory.create(component, excludes));
                 context.put("excludeContainsRegexps", excludeContainsRegexps);
                 context.put("classpaths", antHelper.createClassPath(component));
                 context.put("vendor", component.getVendor());
                 context.put("component", component.getName().replaceAll("/", "~"));
 
-                String baseLocation = antHelper.getBaseLocation(component);
+                final String baseLocation = antHelper.getBaseLocation(component);
                 context.put("componentBase", baseLocation);
-                String location = String.format("%s/checkstyle-build.xml", baseLocation);
+                final String location = getBuildXmlLocation(baseLocation);
                 buildFile = new FileWriter(location);
                 engine.evaluate(context, buildFile, "checkstyle-build", new InputStreamReader(this.getClass()
                     .getResourceAsStream("/org/arachna/netweaver/nwdi/checkstyle/checkstyle-build.vm")));
-                this.buildFilePaths.add(location);
+                buildFilePaths.add(location);
             }
         }
-        catch (Exception e) {
+        catch (final Exception e) {
             e.printStackTrace(logger);
         }
         finally {
@@ -139,10 +141,18 @@ final class BuildFileGenerator {
                 try {
                     buildFile.close();
                 }
-                catch (IOException e) {
+                catch (final IOException e) {
                     e.printStackTrace(logger);
                 }
             }
         }
+    }
+
+    /**
+     * @param baseLocation
+     * @return
+     */
+    protected String getBuildXmlLocation(final String baseLocation) {
+        return String.format(BUILD_XML_PATH_TEMPLATE, baseLocation);
     }
 }
