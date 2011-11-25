@@ -13,13 +13,10 @@ import hudson.tasks.Ant;
 import hudson.util.FormValidation;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.io.Reader;
 import java.io.StringWriter;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Properties;
 
 import javax.servlet.ServletException;
 
@@ -35,7 +32,6 @@ import org.arachna.netweaver.hudson.nwdi.DCWithJavaSourceAcceptingFilter;
 import org.arachna.netweaver.hudson.nwdi.NWDIBuild;
 import org.arachna.netweaver.hudson.nwdi.NWDIProject;
 import org.arachna.netweaver.hudson.util.FilePathHelper;
-import org.arachna.velocity.VelocityLogChute;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;

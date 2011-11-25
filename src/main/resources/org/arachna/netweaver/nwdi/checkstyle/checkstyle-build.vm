@@ -22,7 +22,7 @@
 		<not>
     	  <or>
 		#foreach($exclude in $excludeContainsRegexps)
-		    <contains text="$exclude" />
+		    <containsregexp expression="$exclude" />
         #end
           </or>
         </not>
