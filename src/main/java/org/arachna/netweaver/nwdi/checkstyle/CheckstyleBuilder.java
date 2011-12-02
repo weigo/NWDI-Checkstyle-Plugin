@@ -9,7 +9,6 @@ import hudson.model.AbstractProject;
 import hudson.model.Hudson;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
-import hudson.tasks.Ant;
 import hudson.util.FormValidation;
 
 import java.io.IOException;
@@ -111,8 +110,7 @@ public class CheckstyleBuilder extends AntTaskBuilder {
             Collection<String> buildFiles = createBuildFiles(logger, components, checkstyleConfig, engine);
             createBuildFile(workspace, engine, buildFiles);
 
-            Ant ant = new Ant("checkstyle-all", null, null, CHECKSTYLE_BUILD_ALL_XML, getAntProperties());
-            ant.perform(build, launcher, listener);
+            result = this.execute(nwdiBuild, launcher, listener, "checkstyle-all", CHECKSTYLE_BUILD_ALL_XML, null);
         }
         catch (final IOException e) {
             e.printStackTrace(logger);
