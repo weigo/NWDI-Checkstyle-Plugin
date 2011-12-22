@@ -4,14 +4,15 @@
   #foreach($path in $classpaths)
   <fileset dir="$path">
       <include name="**/*.jar" />
+      <include name="**/*.ear" />
   </fileset>
   #end
 </path>
 
   <target name="checkstyle-$vendor~$component">
     <echo>Running checkstyle on $vendor~$component.</echo>
-    <checkstyle config="$checkstyleconfig" failOnViolation="false" classpathref="classpath">
-      <formatter type="xml" toFile="$componentBase/gen/default/logs/checkstyle-result.xml" />
+    <checkstyle config="$checkstyleconfig" failOnViolation="false" classpath="$classes" classpathref="classpath">
+      <formatter type="xml" toFile="$componenBase/gen/default/logs/checkstyle-result.xml" />
       #foreach ($path in $sourcePaths)
       <fileset dir="$path">
         <include name="**/*.java" />

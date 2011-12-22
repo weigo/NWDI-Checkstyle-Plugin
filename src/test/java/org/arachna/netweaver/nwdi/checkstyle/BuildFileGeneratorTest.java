@@ -3,32 +3,30 @@
  */
 package org.arachna.netweaver.nwdi.checkstyle;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
 import hudson.Util;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.StringWriter;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 
 import org.apache.velocity.app.VelocityEngine;
+import org.apache.velocity.context.Context;
 import org.arachna.ant.AntHelper;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
 import org.arachna.netweaver.dc.types.DevelopmentComponentFactory;
 import org.arachna.netweaver.dc.types.PublicPart;
 import org.arachna.netweaver.dc.types.PublicPartReference;
+import org.arachna.netweaver.dc.types.PublicPartType;
 import org.custommonkey.xmlunit.XMLTestCase;
 import org.custommonkey.xmlunit.exceptions.XpathException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
 /**
@@ -56,9 +54,12 @@ public class BuildFileGeneratorTest extends XMLTestCase {
 
         final Collection<DevelopmentComponent> components = new LinkedList<DevelopmentComponent>();
         final DevelopmentComponent dc1 =
-            dcFactory.create("vendor.com", "dc1", new PublicPart[] { new PublicPart("api", "", ""),
-                new PublicPart("assembly", "", "") }, new PublicPartReference[] {});
-        dc1.addSourceFolder(antHelper.getBaseLocation(dc1) + "/src/packages");
+            dcFactory.create("vendor.com", "dc1", new PublicPart[] {
+                new PublicPart("api", "", "", PublicPartType.COMPILE),
+                new PublicPart("assembly", "", "", PublicPartType.ASSEMBLY) }, new PublicPartReference[] {});
+        dc1.addSourceFolder("src/packages");
+        dc1.addSourceFolder("test/packages");
+        dc1.setOutputFolder("classes");
         components.add(dc1);
 
         final PublicPartReference api = new PublicPartReference("vendor.com", "dc1", "api");
@@ -67,9 +68,9 @@ public class BuildFileGeneratorTest extends XMLTestCase {
         assembly.setAtBuildTime(true);
 
         final DevelopmentComponent dc2 =
-            dcFactory.create("vendor.com", "dc2", new PublicPart[] { new PublicPart("defLib", "", "") },
-                new PublicPartReference[] { api, assembly });
-        dc2.addSourceFolder(antHelper.getBaseLocation(dc2) + "/src/packages");
+            dcFactory.create("vendor.com", "dc2", new PublicPart[] { new PublicPart("defLib", "", "",
+                PublicPartType.COMPILE) }, new PublicPartReference[] { api, assembly });
+        dc2.addSourceFolder("src/packages");
         components.add(dc2);
 
         final PublicPartReference defLib = new PublicPartReference("vendor.com", "dc1", "defLib");
@@ -77,7 +78,7 @@ public class BuildFileGeneratorTest extends XMLTestCase {
 
         final DevelopmentComponent dc3 =
             dcFactory.create("vendor.com", "dc3", new PublicPart[] {}, new PublicPartReference[] { defLib });
-        dc3.addSourceFolder(antHelper.getBaseLocation(dc3) + "/src/packages");
+        dc3.addSourceFolder("src/packages");
         components.add(dc3);
 
         generator =
@@ -98,64 +99,76 @@ public class BuildFileGeneratorTest extends XMLTestCase {
      * Test method for
      * {@link org.arachna.netweaver.nwdi.checkstyle.BuildFileGenerator#write(java.io.Writer)}
      * .
-     * 
-     * @throws IOException
-     * @throws SAXException
-     * @throws XpathException
      */
     @Test
     public final void testProjectHasBeenCreated() throws XpathException, SAXException, IOException {
-        final String result = createBuildFile();
-        assertXpathEvaluatesTo("1", "count(/project[@default='all'])", result);
+        assertXpathEvaluatesTo("1", "count(/project)");
     }
 
     /**
      * Test method for
      * {@link org.arachna.netweaver.nwdi.checkstyle.BuildFileGenerator#write(java.io.Writer)}
      * .
-     * 
-     * @throws IOException
-     * @throws SAXException
-     * @throws XpathException
      */
     @Test
-    public final void testCreatedPaths() throws XpathException, SAXException, IOException {
-        final String result = createBuildFile();
-        assertXpathEvaluatesTo("2", "count(/project/path)", result);
+    public final void testClassPathWasCreated() throws XpathException, SAXException, IOException {
+        assertXpathEvaluatesTo("1", "count(/project/path[@id='classpath'])");
     }
 
     /**
      * Test method for
      * {@link org.arachna.netweaver.nwdi.checkstyle.BuildFileGenerator#write(java.io.Writer)}
      * .
-     * 
-     * @throws IOException
-     * @throws SAXException
-     * @throws XpathException
      */
     @Test
-    public final void testDefaultTarget() throws XpathException, SAXException, IOException {
-        final String result = createBuildFile();
-        assertXpathEvaluatesTo("1", "count(/project/target[@name='all'])", result);
+    public final void testClassPathContainsOutputFolder() throws XpathException, SAXException, IOException {
+        final DevelopmentComponent component = dcFactory.get("vendor.com", "dc1");
+
+        assertXpathEvaluatesTo("1",
+            String.format("count(/project//checkstyle[@classpath='%s'])", component.getOutputFolder()));
+    }
+
+    /**
+     * Test method for
+     * {@link org.arachna.netweaver.nwdi.checkstyle.BuildFileGenerator#write(java.io.Writer)}
+     * .
+     */
+    @Test
+    public final void testDefaultTarget() throws XpathException, SAXException {
+        assertXpathEvaluatesTo("1", "count(/project/target[@name='checkstyle-vendor.com~dc1'])");
+    }
+
+    private void assertXpathEvaluatesTo(String expected, String xPath) {
+        try {
+            assertXpathEvaluatesTo(expected, xPath, createBuildFile());
+        }
+        catch (XpathException e) {
+            fail(e.getMessage());
+        }
+        catch (SAXException e) {
+            fail(e.getMessage());
+        }
+        catch (IOException e) {
+            fail(e.getMessage());
+        }
     }
 
     /**
      * @return
      * @throws IOException
      */
-    protected String createBuildFile() throws IOException {
+    protected String createBuildFile() {
         final DevelopmentComponent component = dcFactory.get("vendor.com", "dc1");
-        generator.execute(component);
+        Context context = generator.createContext(component, component.getSourceFolders());
+        StringWriter content = new StringWriter();
 
-        return Util.loadFile(new File(String.format(BuildFileGenerator.BUILD_XML_PATH_TEMPLATE,
-            antHelper.getBaseLocation(component))));
-    }
+        try {
+            generator.evaluateContext(content, context);
+        }
+        catch (IOException e) {
+            fail(e.getMessage());
+        }
 
-    /**
-     * @param node
-     */
-    protected void assertNodeIsNotNullAndHasGivenElementName(final Node node, final String name) {
-        assertThat(node, is(not(equalTo(null))));
-        assertThat(node.getNodeName(), is(equalTo(name)));
+        return content.toString();
     }
 }

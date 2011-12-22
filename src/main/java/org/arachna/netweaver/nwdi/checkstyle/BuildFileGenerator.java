@@ -25,7 +25,7 @@ import org.arachna.netweaver.dc.types.DevelopmentComponent;
  * 
  * @author Dirk Weigenand
  */
-final class BuildFileGenerator {
+class BuildFileGenerator {
     protected static final String BUILD_XML_PATH_TEMPLATE = "%s/checkstyle-build.xml";
 
     /**
@@ -115,21 +115,10 @@ final class BuildFileGenerator {
                 antHelper.createSourceFileSets(component, new ExcludeDataDictionarySourceDirectoryFilter());
 
             if (!sources.isEmpty()) {
-                final Context context = new VelocityContext();
-                context.put("sourcePaths", sources);
-                context.put("checkstyleconfig", pathToGlobalCheckstyleConfig);
-                context.put("excludes", excludesFactory.create(component, excludes));
-                context.put("excludeContainsRegexps", excludeContainsRegexps);
-                context.put("classpaths", antHelper.createClassPath(component));
-                context.put("vendor", component.getVendor());
-                context.put("component", component.getName().replaceAll("/", "~"));
-
-                final String baseLocation = antHelper.getBaseLocation(component);
-                context.put("componentBase", baseLocation);
-                final String location = getBuildXmlLocation(baseLocation);
+                final Context context = createContext(component, sources);
+                String location = getBuildXmlLocation(component);
                 buildFile = new FileWriter(location);
-                engine.evaluate(context, buildFile, "checkstyle-build", new InputStreamReader(this.getClass()
-                    .getResourceAsStream("/org/arachna/netweaver/nwdi/checkstyle/checkstyle-build.vm")));
+                evaluateContext(buildFile, context);
                 buildFilePaths.add(location);
             }
         }
@@ -149,10 +138,40 @@ final class BuildFileGenerator {
     }
 
     /**
-     * @param baseLocation
+     * @param component
      * @return
      */
-    protected String getBuildXmlLocation(final String baseLocation) {
-        return String.format(BUILD_XML_PATH_TEMPLATE, baseLocation);
+    private String getBuildXmlLocation(DevelopmentComponent component) {
+        return String.format(BUILD_XML_PATH_TEMPLATE, antHelper.getBaseLocation(component));
+    }
+
+    /**
+     * @param buildFile
+     * @param context
+     * @throws IOException
+     */
+    void evaluateContext(Writer buildFile, final Context context) throws IOException {
+        engine.evaluate(context, buildFile, "checkstyle-build", new InputStreamReader(this.getClass()
+            .getResourceAsStream("/org/arachna/netweaver/nwdi/checkstyle/checkstyle-build.vm")));
+    }
+
+    /**
+     * @param component
+     * @param sources
+     * @return
+     */
+    Context createContext(final DevelopmentComponent component, final Collection<String> sources) {
+        final Context context = new VelocityContext();
+        context.put("sourcePaths", sources);
+        context.put("checkstyleconfig", pathToGlobalCheckstyleConfig);
+        context.put("excludes", excludesFactory.create(component, excludes));
+        context.put("excludeContainsRegexps", excludeContainsRegexps);
+        context.put("classpaths", antHelper.createClassPath(component));
+        context.put("classes", component.getOutputFolder());
+        context.put("vendor", component.getVendor());
+        context.put("component", component.getName().replaceAll("/", "~"));
+        context.put("componenBase", this.antHelper.getBaseLocation(component));
+
+        return context;
     }
 }
