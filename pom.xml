@@ -7,7 +7,7 @@
     <artifactId>NWDI-pom-Plugin</artifactId>
     <version>1.3-SNAPSHOT</version>
   </parent>
-  <groupId>org.arachna.netweaver</groupId>
+
   <artifactId>NWDI-Checkstyle-Plugin</artifactId>
   <name>NWDI-Checkstyle-Plugin</name>
   <version>1.0-SNAPSHOT</version>
