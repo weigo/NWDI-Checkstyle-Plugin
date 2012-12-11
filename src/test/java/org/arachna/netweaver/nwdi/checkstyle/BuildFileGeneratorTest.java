@@ -5,10 +5,8 @@ package org.arachna.netweaver.nwdi.checkstyle;
 
 import hudson.Util;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.io.StringWriter;
 import java.util.Collection;
 import java.util.HashSet;
@@ -82,8 +80,7 @@ public class BuildFileGeneratorTest extends XMLTestCase {
         components.add(dc3);
 
         generator =
-            new BuildFileGenerator(new VelocityEngine(), new PrintStream(new ByteArrayOutputStream()), antHelper, "",
-                new HashSet<String>(), new HashSet<String>());
+            new BuildFileGenerator(new VelocityEngine(), antHelper, "", new HashSet<String>(), new HashSet<String>());
     }
 
     /**
@@ -138,17 +135,17 @@ public class BuildFileGeneratorTest extends XMLTestCase {
         assertXpathEvaluatesTo("1", "count(/project/target[@name='checkstyle-vendor.com~dc1'])");
     }
 
-    private void assertXpathEvaluatesTo(String expected, String xPath) {
+    private void assertXpathEvaluatesTo(final String expected, final String xPath) {
         try {
             assertXpathEvaluatesTo(expected, xPath, createBuildFile());
         }
-        catch (XpathException e) {
+        catch (final XpathException e) {
             fail(e.getMessage());
         }
-        catch (SAXException e) {
+        catch (final SAXException e) {
             fail(e.getMessage());
         }
-        catch (IOException e) {
+        catch (final IOException e) {
             fail(e.getMessage());
         }
     }
@@ -159,15 +156,10 @@ public class BuildFileGeneratorTest extends XMLTestCase {
      */
     protected String createBuildFile() {
         final DevelopmentComponent component = dcFactory.get("vendor.com", "dc1");
-        Context context = generator.createContext(component, component.getSourceFolders());
-        StringWriter content = new StringWriter();
+        final Context context = generator.createContext(component, component.getSourceFolders());
+        final StringWriter content = new StringWriter();
 
-        try {
-            generator.evaluateContext(content, context);
-        }
-        catch (IOException e) {
-            fail(e.getMessage());
-        }
+        generator.evaluateContext(content, context);
 
         return content.toString();
     }

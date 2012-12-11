@@ -15,7 +15,6 @@
     <module name="ConstantName">
       <property name="format" value="^[A-Z](_?[A-Z0-9]+)*$|log"/>
     </module>
-    <module name="DoubleCheckedLocking"/>
     <module name="FinalClass"/>
     <module name="HideUtilityClassConstructor"/>
     <module name="InnerAssignment">

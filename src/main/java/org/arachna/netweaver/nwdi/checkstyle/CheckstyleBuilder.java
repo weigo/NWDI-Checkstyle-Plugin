@@ -13,7 +13,6 @@ import hudson.util.FormValidation;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.StringWriter;
 import java.util.Collection;
 import java.util.HashSet;
 
@@ -22,9 +21,7 @@ import javax.servlet.ServletException;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
-import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
-import org.apache.velocity.context.Context;
 import org.arachna.netweaver.dc.types.DevelopmentComponent;
 import org.arachna.netweaver.hudson.nwdi.AntTaskBuilder;
 import org.arachna.netweaver.hudson.nwdi.DCWithJavaSourceAcceptingFilter;
@@ -36,23 +33,18 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 /**
- * Sample {@link Builder}.
+ * Builder for executing checkstyle checks on SAP NetWeaver development
+ * components.
  * 
- * <p>
- * When the user configures the project and enables this builder,
- * {@link DescriptorImpl#newInstance(StaplerRequest)} is invoked and a new
- * {@link CheckstyleBuilder} is created. The created instance is persisted to
- * the project configuration XML by using XStream, so this allows you to use
- * instance fields (like {@link #name}) to remember the configuration.
- * 
- * <p>
- * When a build is performed, the
- * {@link #perform(AbstractBuild, Launcher, BuildListener)} method will be
- * invoked.
- * 
- * @author Kohsuke Kawaguchi
+ * @author Dirk Weigenand
  */
 public class CheckstyleBuilder extends AntTaskBuilder {
+    /**
+     * Descriptor for {@link CheckstyleBuilder}.
+     */
+    @Extension
+    public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
+
     /**
      * 
      */
@@ -68,12 +60,6 @@ public class CheckstyleBuilder extends AntTaskBuilder {
      * 
      */
     private static final String CHECKSTYLE_BUILD_ALL_XML = "checkstyle-build-all.xml";
-
-    /**
-     * Descriptor for {@link CheckstyleBuilder}.
-     */
-    @Extension(ordinal = 1000)
-    public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
     /**
      * Name of checkstyle configuration file in workspace.
@@ -95,22 +81,30 @@ public class CheckstyleBuilder extends AntTaskBuilder {
     @Override
     public boolean perform(final AbstractBuild<?, ?> build, final Launcher launcher, final BuildListener listener) {
         boolean result = true;
-        PrintStream logger = listener.getLogger();
+        final PrintStream logger = listener.getLogger();
 
         try {
             final NWDIBuild nwdiBuild = (NWDIBuild)build;
-            FilePath workspace = nwdiBuild.getWorkspace();
-            FilePath checkstyleConfig = workspace.child(CHECKSTYLE_CONFIG_XML);
+            final FilePath workspace = nwdiBuild.getWorkspace();
+            final FilePath checkstyleConfig = workspace.child(CHECKSTYLE_CONFIG_XML);
             checkstyleConfig.write(getDescriptor().getConfiguration(), "UTF-8");
 
-            VelocityEngine engine = getVelocityEngine(logger);
+            final VelocityEngine engine = getVelocityEngine(logger);
 
-            Collection<DevelopmentComponent> components =
+            final Collection<DevelopmentComponent> components =
                 nwdiBuild.getAffectedDevelopmentComponents(new DCWithJavaSourceAcceptingFilter());
-            Collection<String> buildFiles = createBuildFiles(logger, components, checkstyleConfig, engine);
-            createBuildFile(workspace, engine, buildFiles);
+            final BuildFileGenerator executor = createBuildFileGenerator(engine, checkstyleConfig);
 
-            result = this.execute(nwdiBuild, launcher, listener, "checkstyle-all", CHECKSTYLE_BUILD_ALL_XML, null);
+            for (final DevelopmentComponent component : components) {
+                final String buildFile = executor.execute(component);
+
+                if (buildFile != null) {
+                    result |=
+                        execute(nwdiBuild, launcher, listener,
+                            String.format("checkstyle-%s", component.getNormalizedName("~")), buildFile, null);
+                }
+            }
+
         }
         catch (final IOException e) {
             e.printStackTrace(logger);
@@ -125,52 +119,11 @@ public class CheckstyleBuilder extends AntTaskBuilder {
     }
 
     /**
-     * @param listener
-     * @param nwdiBuild
-     * @param checkstyleConfig
-     * @param engine
-     * @return
-     */
-    private Collection<String> createBuildFiles(final PrintStream logger,
-        final Collection<DevelopmentComponent> components, FilePath checkstyleConfig, VelocityEngine engine) {
-        final BuildFileGenerator executor = createBuildFileGenerator(engine, logger, checkstyleConfig);
-
-        for (final DevelopmentComponent component : components) {
-            executor.execute(component);
-        }
-
-        return executor.getBuildFilePaths();
-    }
-
-    /**
-     * Create the build file for calling all the given build files.
-     * 
-     * @param workspace
-     *            workspace where to create the build file
-     * @param engine
-     *            velocity engine to use for creating the build file
-     * @param paths
-     *            to build files
-     */
-    private void createBuildFile(final FilePath workspace, VelocityEngine engine, final Collection<String> buildFiles) {
-        try {
-            StringWriter buildFile = new StringWriter();
-            Context context = new VelocityContext();
-            context.put("buildFiles", buildFiles);
-            engine
-                .evaluate(context, buildFile, CHECKSTYLE_BUILD_ALL_TARGET, getTemplateReader(CHECKSTYLE_BUILD_ALL_VM));
-            workspace.child(CHECKSTYLE_BUILD_ALL_XML).write(buildFile.toString(), "UTF-8");
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    /**
      * Get the properties to use calling ant.
      * 
      * @return the properties to use calling ant.
      */
+    @Override
     protected String getAntProperties() {
         return String.format("checkstyle.dir=%s/plugins/NWDI-Checkstyle-Plugin/WEB-INF/lib", Hudson.getInstance().root
             .getAbsolutePath().replace("\\", "/"));
@@ -181,14 +134,14 @@ public class CheckstyleBuilder extends AntTaskBuilder {
      * 
      * @param engine
      *            velocity engine to use for creating build files.
-     * @param
-     * @return the checkstyle executor object executing the analysis.
+     * @param checkstyleConfig
+     *            path to global checkstyle configuration.
+     * @return the checkstyle build file generator.
      */
-    protected BuildFileGenerator createBuildFileGenerator(VelocityEngine engine, final PrintStream logger,
-        final FilePath checkstyleConfig) {
+    protected BuildFileGenerator createBuildFileGenerator(final VelocityEngine engine, final FilePath checkstyleConfig) {
         final DescriptorImpl descriptor = getDescriptor();
 
-        return new BuildFileGenerator(engine, logger, getAntHelper(), FilePathHelper.makeAbsolute(checkstyleConfig),
+        return new BuildFileGenerator(engine, getAntHelper(), FilePathHelper.makeAbsolute(checkstyleConfig),
             descriptor.getExcludes(), descriptor.getExcludeContainsRegexps());
     }
 
@@ -269,7 +222,7 @@ public class CheckstyleBuilder extends AntTaskBuilder {
          */
         @Override
         public boolean configure(final StaplerRequest req, final JSONObject formData) throws FormException {
-            this.configuration = formData.getString("configuration");
+            configuration = formData.getString("configuration");
 
             final JSONObject advancedConfig = (JSONObject)formData.get("advancedConfiguration");
 

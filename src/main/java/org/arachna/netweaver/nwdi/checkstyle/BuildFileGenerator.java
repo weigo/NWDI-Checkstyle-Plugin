@@ -6,7 +6,6 @@ package org.arachna.netweaver.nwdi.checkstyle;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.io.Writer;
 import java.util.Collection;
 import java.util.HashSet;
@@ -26,6 +25,9 @@ import org.arachna.netweaver.dc.types.DevelopmentComponent;
  * @author Dirk Weigenand
  */
 class BuildFileGenerator {
+    /**
+     * path template for a 'checkstyle-build.xml' for a development component.
+     */
     protected static final String BUILD_XML_PATH_TEMPLATE = "%s/checkstyle-build.xml";
 
     /**
@@ -34,12 +36,7 @@ class BuildFileGenerator {
     private final String pathToGlobalCheckstyleConfig;
 
     /**
-     * Logger.
-     */
-    private final PrintStream logger;
-
-    /**
-     * helper for populating properties of the checkstyle ant task
+     * helper for populating properties of the checkstyle ant task.
      */
     private final AntHelper antHelper;
 
@@ -54,7 +51,7 @@ class BuildFileGenerator {
     private final Set<String> excludes = new HashSet<String>();
 
     /**
-     * Excludes by regexp over content configured in project.
+     * Excludes 'by regexp over content' configured in project.
      */
     private final Set<String> excludeContainsRegexps = new HashSet<String>();
 
@@ -64,37 +61,27 @@ class BuildFileGenerator {
     private final VelocityEngine engine;
 
     /**
-     * Paths to generated build files.
-     */
-    private final Collection<String> buildFilePaths = new HashSet<String>();
-
-    /**
-     * @return the buildFilePaths
-     */
-    public final Collection<String> getBuildFilePaths() {
-        return buildFilePaths;
-    }
-
-    /**
      * Create an instance of an {@link BuildFileGenerator} with the given
      * workspace location and checkstyle configuration file.
      * 
-     * @param listener
-     *            build listener for logging
+     * @param engine
+     *            VelocityEngine for build file generation.
      * @param antHelper
      *            helper class for populating the checkstyle ant task's file
      *            sets, class path etc.
      * @param pathToGlobalCheckstyleConfig
      *            the path to the global checkstyle configuration file
-     * @param descriptor
-     *            the descriptor of checkstyle builder
+     * @param excludes
+     *            Ant exclude patterns.
+     * @param excludeContainsRegexps
+     *            regular expressions to be used to exclude sources that match
+     *            the given expressions with their content.
      * 
      */
-    BuildFileGenerator(final VelocityEngine engine, final PrintStream logger, final AntHelper antHelper,
+    BuildFileGenerator(final VelocityEngine engine, final AntHelper antHelper,
         final String pathToGlobalCheckstyleConfig, final Collection<String> excludes,
         final Collection<String> excludeContainsRegexps) {
         this.engine = engine;
-        this.logger = logger;
         this.antHelper = antHelper;
         this.pathToGlobalCheckstyleConfig = pathToGlobalCheckstyleConfig;
         this.excludes.addAll(excludes);
@@ -102,13 +89,16 @@ class BuildFileGenerator {
     }
 
     /**
-     * Executes the checkstyle check for the given development component.
+     * Generates the 'checkstyle-build.xml' for the given development component.
      * 
      * @param component
-     *            the development component to execute a checkstyle check on.
+     *            the development component to generate the
+     *            'checkstyle-build.xml' for.
+     * @return path to generated build file.
      */
-    void execute(final DevelopmentComponent component) {
+    String execute(final DevelopmentComponent component) {
         Writer buildFile = null;
+        String buildFilePath = null;
 
         try {
             final Collection<String> sources =
@@ -116,14 +106,14 @@ class BuildFileGenerator {
 
             if (!sources.isEmpty()) {
                 final Context context = createContext(component, sources);
-                String location = getBuildXmlLocation(component);
+                final String location = getBuildXmlLocation(component);
                 buildFile = new FileWriter(location);
                 evaluateContext(buildFile, context);
-                buildFilePaths.add(location);
+                buildFilePath = location;
             }
         }
-        catch (final Exception e) {
-            e.printStackTrace(logger);
+        catch (final IOException e) {
+            throw new IllegalStateException(e);
         }
         finally {
             if (buildFile != null) {
@@ -131,34 +121,50 @@ class BuildFileGenerator {
                     buildFile.close();
                 }
                 catch (final IOException e) {
-                    e.printStackTrace(logger);
+                    throw new IllegalStateException(e);
                 }
             }
         }
+
+        return buildFilePath;
     }
 
     /**
+     * Calculate the location of the 'checkstyle-build.xml'.
+     * 
      * @param component
-     * @return
+     *            development component to calculate the location of the
+     *            'checkstyle-build.xml' for.
+     * @return the location of the 'checkstyle-build.xml' for the given
+     *         component.
      */
-    private String getBuildXmlLocation(DevelopmentComponent component) {
+    private String getBuildXmlLocation(final DevelopmentComponent component) {
         return String.format(BUILD_XML_PATH_TEMPLATE, antHelper.getBaseLocation(component));
     }
 
     /**
+     * Evaluate the given context and write the transformation result into the
+     * given writer instance.
+     * 
      * @param buildFile
+     *            writer to receive the transformation result.
      * @param context
-     * @throws IOException
+     *            velocity context to be evaluated.
      */
-    void evaluateContext(Writer buildFile, final Context context) throws IOException {
+    void evaluateContext(final Writer buildFile, final Context context) {
         engine.evaluate(context, buildFile, "checkstyle-build", new InputStreamReader(this.getClass()
             .getResourceAsStream("/org/arachna/netweaver/nwdi/checkstyle/checkstyle-build.vm")));
     }
 
     /**
+     * Fill in the velocity context to be used to create the
+     * 'checkstyle-build.xml'.
+     * 
      * @param component
+     *            development component the build file shall be created for.
      * @param sources
-     * @return
+     *            a collection of source paths to be checked with checkstyle.
+     * @return the velocity context produced.
      */
     Context createContext(final DevelopmentComponent component, final Collection<String> sources) {
         final Context context = new VelocityContext();
@@ -170,7 +176,7 @@ class BuildFileGenerator {
         context.put("classes", component.getOutputFolder());
         context.put("vendor", component.getVendor());
         context.put("component", component.getName().replaceAll("/", "~"));
-        context.put("componenBase", this.antHelper.getBaseLocation(component));
+        context.put("componenBase", antHelper.getBaseLocation(component));
 
         return context;
     }
