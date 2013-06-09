@@ -3,10 +3,12 @@
  */
 package org.arachna.netweaver.nwdi.checkstyle;
 
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -29,6 +31,11 @@ class BuildFileGenerator {
      * path template for a 'checkstyle-build.xml' for a development component.
      */
     protected static final String BUILD_XML_PATH_TEMPLATE = "%s/checkstyle-build.xml";
+
+    /**
+     * Encoding to use for writing build files and reading their templates.
+     */
+    private static final String ENCODING = "UTF-8";
 
     /**
      * Checkstyle configuration file.
@@ -102,7 +109,7 @@ class BuildFileGenerator {
             if (!sources.isEmpty()) {
                 final Context context = createContext(component, sources);
                 final String location = getBuildXmlLocation(component);
-                buildFile = new FileWriter(location);
+                buildFile = new OutputStreamWriter(new FileOutputStream(location), Charset.forName(ENCODING));
                 evaluateContext(buildFile, context);
                 buildFilePath = location;
             }
@@ -145,7 +152,8 @@ class BuildFileGenerator {
      */
     void evaluateContext(final Writer buildFile, final Context context) {
         engine.evaluate(context, buildFile, "checkstyle-build",
-            new InputStreamReader(this.getClass().getResourceAsStream("/org/arachna/netweaver/nwdi/checkstyle/checkstyle-build.vm")));
+            new InputStreamReader(this.getClass().getResourceAsStream("/org/arachna/netweaver/nwdi/checkstyle/checkstyle-build.vm"),
+                Charset.forName(ENCODING)));
     }
 
     /**
