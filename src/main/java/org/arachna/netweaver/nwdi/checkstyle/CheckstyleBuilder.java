@@ -11,6 +11,7 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collection;
@@ -78,12 +79,10 @@ public class CheckstyleBuilder extends AntTaskBuilder {
             final BuildFileGenerator generator = createBuildFileGenerator(engine, checkstyleConfig);
 
             for (final DevelopmentComponent component : components) {
-                final String buildFile = generator.execute(component);
+                final BuildDescriptor descriptor = generator.execute(component);
 
-                if (buildFile != null) {
-                    result |=
-                        execute(nwdiBuild, launcher, listener, String.format("checkstyle-%s", component.getNormalizedName("~")), buildFile,
-                            null);
+                if (descriptor != null) {
+                    result |= execute(nwdiBuild, launcher, listener, descriptor.getDefaultTarget(), descriptor.getBuildFile(), null);
                 }
             }
 
@@ -107,8 +106,7 @@ public class CheckstyleBuilder extends AntTaskBuilder {
      */
     @Override
     protected String getAntProperties() {
-        return String.format("checkstyle.dir=%s/plugins/NWDI-Checkstyle-Plugin/WEB-INF/lib", Hudson.getInstance().root.getAbsolutePath()
-            .replace("\\", "/"));
+        return "checkstyle.dir=" + new File(Hudson.getInstance().root, "plugins/NWDI-Checkstyle-Plugin/WEB-INF/lib").getAbsolutePath();
     }
 
     /**

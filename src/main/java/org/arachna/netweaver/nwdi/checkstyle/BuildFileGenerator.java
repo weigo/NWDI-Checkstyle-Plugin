@@ -98,9 +98,8 @@ class BuildFileGenerator {
      *            the development component to generate the 'checkstyle-build.xml' for.
      * @return path to generated build file.
      */
-    String execute(final DevelopmentComponent component) {
+    BuildDescriptor execute(final DevelopmentComponent component) {
         Writer buildFile = null;
-        String buildFilePath = null;
 
         try {
             final Collection<String> sources = antHelper.createSourceFileSets(component, new ExcludeDataDictionarySourceDirectoryFilter());
@@ -111,7 +110,8 @@ class BuildFileGenerator {
                 final String location = getBuildXmlLocation(component);
                 buildFile = new OutputStreamWriter(new FileOutputStream(location), Charset.forName(ENCODING));
                 evaluateContext(buildFile, context);
-                buildFilePath = location;
+
+                return new BuildDescriptor(location, String.format("checkstyle-%s", component.getNormalizedName("~")));
             }
         }
         catch (final IOException e) {
@@ -128,7 +128,7 @@ class BuildFileGenerator {
             }
         }
 
-        return buildFilePath;
+        return null;
     }
 
     /**
