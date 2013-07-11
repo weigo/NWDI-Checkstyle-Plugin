@@ -7,6 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.Charset;
 import java.util.Collection;
@@ -151,9 +152,15 @@ class BuildFileGenerator {
      *            velocity context to be evaluated.
      */
     void evaluateContext(final Writer buildFile, final Context context) {
-        engine.evaluate(context, buildFile, "checkstyle-build",
-            new InputStreamReader(this.getClass().getResourceAsStream("/org/arachna/netweaver/nwdi/checkstyle/checkstyle-build.vm"),
-                Charset.forName(ENCODING)));
+        engine.evaluate(context, buildFile, "checkstyle-build", getTemplate());
+    }
+
+    /**
+     * @return
+     */
+    private Reader getTemplate() {
+        return new InputStreamReader(getClass().getResourceAsStream("/org/arachna/netweaver/nwdi/checkstyle/checkstyle-build.vm"),
+            Charset.forName(ENCODING));
     }
 
     /**
