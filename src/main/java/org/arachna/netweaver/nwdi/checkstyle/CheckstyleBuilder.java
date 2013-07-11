@@ -72,7 +72,7 @@ public class CheckstyleBuilder extends AntTaskBuilder {
             final FilePath checkstyleConfig = workspace.child(CHECKSTYLE_CONFIG_XML);
             checkstyleConfig.write(getDescriptor().getConfiguration(), "UTF-8");
 
-            final VelocityEngine engine = getVelocityEngine(logger);
+            final VelocityEngine engine = getVelocityEngine();
 
             final Collection<DevelopmentComponent> components =
                 nwdiBuild.getAffectedDevelopmentComponents(new DCWithJavaSourceAcceptingFilter());
