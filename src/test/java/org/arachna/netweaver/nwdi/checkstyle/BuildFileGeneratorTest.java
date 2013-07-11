@@ -161,7 +161,6 @@ public class BuildFileGeneratorTest extends XMLTestCase {
 
         generator.evaluateContext(content, context);
 
-        System.err.println(content.toString());
         return content.toString();
     }
 }
