@@ -34,7 +34,8 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 /**
- * Builder for executing checkstyle checks on SAP NetWeaver development components.
+ * Builder for executing checkstyle checks on SAP NetWeaver development
+ * components.
  * 
  * @author Dirk Weigenand
  */
@@ -51,7 +52,8 @@ public class CheckstyleBuilder extends AntTaskBuilder {
     private static final String CHECKSTYLE_CONFIG_XML = "checkstyle-config.xml";
 
     /**
-     * Data bound constructor. Used for populating a {@link CheckstyleBuilder} instance from form fields in <code>config.jelly</code>.
+     * Data bound constructor. Used for populating a {@link CheckstyleBuilder}
+     * instance from form fields in <code>config.jelly</code>.
      */
     @DataBoundConstructor
     public CheckstyleBuilder() {
@@ -92,8 +94,7 @@ public class CheckstyleBuilder extends AntTaskBuilder {
             result = false;
         }
         catch (final InterruptedException e) {
-            e.printStackTrace(logger);
-            // finish.
+            // terminate build.
         }
 
         return result;
@@ -151,12 +152,14 @@ public class CheckstyleBuilder extends AntTaskBuilder {
         private final Collection<String> excludes = new HashSet<String>();
 
         /**
-         * set of regular expressions to exclude files from checkstyle checks via their content.
+         * set of regular expressions to exclude files from checkstyle checks
+         * via their content.
          */
         private final Collection<String> excludeRegexps = new HashSet<String>();
 
         /**
-         * Create descriptor for NWDI-CheckStyle-Builder and load global configuration data.
+         * Create descriptor for NWDI-CheckStyle-Builder and load global
+         * configuration data.
          */
         public DescriptorImpl() {
             load();
@@ -167,7 +170,8 @@ public class CheckstyleBuilder extends AntTaskBuilder {
          * 
          * @param value
          *            This parameter receives the value that the user has typed.
-         * @return Indicates the outcome of the validation. This is sent to the browser.
+         * @return Indicates the outcome of the validation. This is sent to the
+         *         browser.
          */
         public FormValidation doCheckConfiguration(@QueryParameter final String value) throws IOException, ServletException {
             return value.isEmpty() ? FormValidation.error(Messages.checkstyle_builder_checkconfiguration()) : FormValidation.ok();
@@ -222,11 +226,13 @@ public class CheckstyleBuilder extends AntTaskBuilder {
          * @param advancedConfig
          *            JSON form containing advanced configuration data.
          * @param formName
-         *            name of JSON form element to extract item descriptions from.
+         *            name of JSON form element to extract item descriptions
+         *            from.
          * @param itemName
          *            name of configuration form item.
          * 
-         * @return collection of item descriptions to exclude from checkstyle analysis
+         * @return collection of item descriptions to exclude from checkstyle
+         *         analysis
          */
         protected Collection<String> getExcludeItemDescriptions(final JSONObject advancedConfig, final String formName,
             final String itemName) {
@@ -260,7 +266,8 @@ public class CheckstyleBuilder extends AntTaskBuilder {
         }
 
         /**
-         * Sets the checkstyle configuration to be used for all NWDI checkstyle builders.
+         * Sets the checkstyle configuration to be used for all NWDI checkstyle
+         * builders.
          * 
          * @param configuration
          *            the configuration to set
@@ -270,19 +277,23 @@ public class CheckstyleBuilder extends AntTaskBuilder {
         }
 
         /**
-         * Returns the list of file name patterns to exclude from checkstyle checks.
+         * Returns the list of file name patterns to exclude from checkstyle
+         * checks.
          * 
-         * @return the list of file name patterns to exclude from checkstyle checks.
+         * @return the list of file name patterns to exclude from checkstyle
+         *         checks.
          */
         public Collection<String> getExcludes() {
             return excludes;
         }
 
         /**
-         * Sets the list of file name patterns to exclude from checkstyle checks.
+         * Sets the list of file name patterns to exclude from checkstyle
+         * checks.
          * 
          * @param excludes
-         *            the list of file name patterns to exclude from checkstyle checks.
+         *            the list of file name patterns to exclude from checkstyle
+         *            checks.
          */
         public void setExcludes(final Collection<String> excludes) {
             this.excludes.clear();
